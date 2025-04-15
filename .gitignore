@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+.env
+__init__.py
+*.json
+logs
+processed_resumes
+resumes
