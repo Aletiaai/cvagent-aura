@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CV Agent - Subir CV y Crear Cuenta</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}"> </head>
+<body>
+    <div class="container">
+        <h1>¡Casi Listo! Sube tu CV y Protege tu Cuenta</h1>
+
+        <form id="account-upload-form" action="/create-account" method="post" enctype="multipart/form-data">
+            <input type="hidden" name="email" value="{{ email if email else '' }}">
+
+            <h2>Sube tu CV</h2>
+            <div class="file-upload">
+                <label for="resume-file">Archivo PDF:</label>
+                <input type="file" id="resume-file" name="file" accept=".pdf" required>
+                <p class="info">Solo archivos .pdf son aceptados.</p>
+            </div>
+            <p id="file-error-message" class="error"></p>
+
+            <hr style="margin: 30px 0;"> <h2>Protege tu Cuenta</h2>
+            <p>Para acceder a tu CV revisado y administrar tus versiones, por favor crea un password o usa un proveedor social.</p>
+
+            <label for="password">Crea un password:</label>
+            <input type="password" id="password" name="password" required minlength="8">             <label for="confirm_password">Confirma tu password:</label>
+            <input type="password" id="confirm_password" name="confirm_password" required minlength="8">             <p id="password-error-message" class="error"></p>
+
+            <button type="submit">Finalizar y Enviar CV</button>
+
+            <div class="login-options" style="margin-top: 25px;">
+                 <p>O regístrate con:</p>
+                 <button type="button" class="social-button" onclick="alert('Google Signup no implementado aún');">
+                     Sign up with Google
+                 </button>
+                 <button type="button" class="social-button" onclick="alert('LinkedIn Signup no implementado aún');">
+                     Sign up with LinkedIn
+                 </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const accountForm = document.getElementById('account-upload-form');
+        const passwordInput = document.getElementById('password');
+        const confirmPasswordInput = document.getElementById('confirm_password');
+        const passwordErrorMessage = document.getElementById('password-error-message');
+        const fileInput = document.getElementById('resume-file');
+        const fileErrorMessage = document.getElementById('file-error-message');
+
+        accountForm.addEventListener('submit', function(event) {
+            // Clear previous errors
+            passwordErrorMessage.textContent = '';
+            fileErrorMessage.textContent = '';
+            let isValid = true;
+
+            // Password match validation
+            if (passwordInput.value !== confirmPasswordInput.value) {
+                passwordErrorMessage.textContent = 'Los passwords no coinciden.';
+                isValid = false;
+            }
+
+            // Basic password length validation (redundant with minlength but good practice)
+            if (passwordInput.value.length < 8) {
+                // You might want a more specific error message or rely on the browser's default
+                passwordErrorMessage.textContent = 'El password debe tener al menos 8 caracteres.' + (isValid ? '' : ' Además, los passwords no coinciden.');
+                isValid = false;
+            }
+
+             // File type validation (basic check)
+            if (fileInput.files.length > 0) {
+                const fileName = fileInput.files[0].name;
+                const fileExtension = fileName.split('.').pop().toLowerCase();
+                if (fileExtension !== 'pdf') {
+                    fileErrorMessage.textContent = 'Por favor selecciona un archivo PDF.';
+                    isValid = false;
+                }
+            } else if (fileInput.required) {
+                 fileErrorMessage.textContent = 'Por favor selecciona tu CV en formato PDF.';
+                 isValid = false;
+            }
+
+
+            if (!isValid) {
+                event.preventDefault(); // Stop form submission if errors found
+            }
+            // Server-side validation is still essential!
+        });
+    </script>
+</body>
+</html>

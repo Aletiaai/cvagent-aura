@@ -65,7 +65,8 @@ def load_all_prompts():
         "extraction": os.path.join(base_prompt_dir, "extraction"),
         "user_interaction": os.path.join(base_prompt_dir, "user_interaction"),
         "output_formatting": os.path.join(base_prompt_dir, "output_formatting"),
-        "analysis": os.path.join(base_prompt_dir, "analysis")
+        "analysis": os.path.join(base_prompt_dir, "analysis"),
+        "resume_generation": os.path.join(base_prompt_dir, "resume_generation")
     }
 
     loaded_count = 0

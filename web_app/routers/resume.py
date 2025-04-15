@@ -2,22 +2,48 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 # Import your agent's execution logic (we'll define this later)
 # from agent.core.execution import trigger_resume_processing_from_file, trigger_resume_processing_from_drive
+import shutil 
+from pathlib import Path 
+
+# Define UPLOAD_DIR here as well if needed, or import from a central config
+UPLOAD_DIR_RESUME = Path("data/resumes")
+UPLOAD_DIR_RESUME.mkdir(parents=True, exist_ok=True)
 
 router = APIRouter()
 
-@router.post("/upload/file/")
-async def upload_resume_file(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+# This function now contains the core logic we want to reuse
+async def process_and_save_resume(background_tasks: BackgroundTasks, file: UploadFile):
+    """Saves the resume and triggers background processing."""
     if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Invalid file type. Only PDF is supported.")
-    
-    # Save the uploaded file temporarily (or process in memory if feasible)
-    temp_file_path = f"data/resumes/{file.filename}" # Or use tempfile module
-    with open(temp_file_path, "wb") as buffer:
-        buffer.write(await file.read())
-        
-    # Trigger background processing by the agent
-    # background_tasks.add_task(trigger_resume_processing_from_file, temp_file_path, file.filename) 
-    
+        # Raise exception to be caught by the calling route
+        raise HTTPException(status_code=400, detail="Tipo de archivo invalido. Solo archivos PDF son aceptados.")
+
+    # Use a safe path - consider making filename unique later
+    save_path = UPLOAD_DIR_RESUME / file.filename
+    print(f"Attempting to save file via resume router logic to: {save_path}")
+
+    try:
+        with open(save_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        print(f"File '{file.filename}' saved successfully via resume router logic.")
+    except Exception as e:
+        print(f"Error saving file in resume router logic: {e}")
+        # Raise a different exception type or handle as needed
+        raise HTTPException(status_code=500, detail=f"Could not save file: {e}")
+    finally:
+        # Ensure file is closed even if saving fails
+        await file.close() # Close the file stream passed in
+
+    # Trigger background processing by the agent (Placeholder)
+    # background_tasks.add_task(trigger_resume_processing_from_file, str(save_path), file.filename)
+    print(f"Placeholder: Background processing triggered via resume router logic for {file.filename}.")
+
+# The API endpoint simply calls the processing function
+@router.post("/upload/file/", name="upload_resume_api")
+async def upload_resume_file(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    """API endpoint for uploading a resume file."""
+    # No need to close file here, process_and_save_resume will do it
+    await process_and_save_resume(background_tasks=background_tasks, file=file)
     return {"message": f"File '{file.filename}' received and processing started."}
 
 @router.post("/trigger/drive/")

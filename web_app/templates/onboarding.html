@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CV Agent - Completa tu Perfil</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}"> </head>
+<body>
+    <div class="container">
+        <h1>¡Hola! Completemos tu perfil</h1>
+        <p>Responde estas preguntas para que podamos ayudarte mejor.</p>
+
+        <form id="onboarding-form" action="/onboarding" method="post">
+            <input type="hidden" name="email" value="{{ email if email else '' }}">
+
+            <label for="industry">¿En qué industria o tipo de empleo estás interesad@?</label>
+            <select id="industry" name="industry" required>
+                <option value="" disabled selected>-- Selecciona una opción --</option>
+                {% for category, subcategories in industries_data.items() %}
+                <optgroup label="{{ category }}">
+                    {% for subcategory in subcategories %}
+                    <option value="{{ category }} - {{ subcategory }}">{{ subcategory }}</option>
+                    {% endfor %}
+                </optgroup>
+                {% endfor %}
+            </select>
+
+            <label for="expectations">¿Qué esperas obtener de esta revisión?</label>
+            <textarea id="expectations" name="expectations" rows="4" required></textarea>
+
+            <label>¿Qué tan seguro te sientes de que tu CV está listo para ser enviado a empresas?</label>
+            <div class="rating-scale">
+                <label>1<br/>(Nada)<br/><input type="radio" name="confidence_rating" value="1" required></label>
+                <label>2<br/><br/><input type="radio" name="confidence_rating" value="2"></label>
+                <label>3<br/>(Algo)<br/><input type="radio" name="confidence_rating" value="3"></label>
+                <label>4<br/><br/><input type="radio" name="confidence_rating" value="4"></label>
+                <label>5<br/>(Complet.)<br/><input type="radio" name="confidence_rating" value="5"></label>
+            </div>
+            <p id="rating-error" class="error"></p> <button type="submit">Siguiente: Subir CV</button>
+        </form>
+    </div>
+    <script>
+        // Optional: Client-side check for radio button selection
+        const onboardingForm = document.getElementById('onboarding-form');
+        const ratingError = document.getElementById('rating-error');
+
+        onboardingForm.addEventListener('submit', function(event) {
+            ratingError.textContent = ''; // Clear previous errors
+            const selectedRating = onboardingForm.querySelector('input[name="confidence_rating"]:checked');
+            if (!selectedRating) {
+                event.preventDefault(); // Stop submission
+                ratingError.textContent = 'Por favor selecciona tu nivel de confianza.';
+            }
+            // Other fields are handled by 'required' attribute
+        });
+    </script>
+</body>
+</html>

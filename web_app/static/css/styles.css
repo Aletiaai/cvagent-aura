@@ -47,6 +47,8 @@ textarea /* Added for later steps */ {
     border: 1px solid #ccc;
     border-radius: 4px;
     box-sizing: border-box; /* Include padding and border in element's total width and height */
+    resize: vertical; /* Allow vertical resizing */
+
 }
 
 button {
@@ -130,4 +132,35 @@ button:hover {
 
 .rating-scale input[type="radio"] {
     margin-top: 5px;
+}
+
+/* Add margin below the rating scale before the error message */
+#rating-error {
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+.info {
+    font-size: 0.85em;
+    color: #555;
+    margin-top: -15px; /* Adjust spacing */
+    margin-bottom: 15px;
+    text-align: left;
+}
+
+.file-upload {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.file-upload input[type="file"] {
+    margin-bottom: 6px;
+}
+
+.file-upload .info {
+    margin-top: 0;
+    font-size: 0.85em;
+    color: #555;
 }
