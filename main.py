@@ -1,6 +1,7 @@
 # This new top-level main.py might just be a simple script to start the web server, or for specific CLI utility tasks if needed.
 
 import config
+import uvicorn
 
 if __name__ == "__main__":
     config.load_all_prompts() # Load prompts on startup
