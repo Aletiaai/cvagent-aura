@@ -5,10 +5,10 @@ from fastapi import APIRouter, Request, Form, Depends, File, UploadFile, HTTPExc
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_400_BAD_REQUEST
-from .resume import process_and_save_resume # <--- Import the function
+from .resume import process_and_save_resume
+from agent.memory.user_db.users import check_user_exists, create_user
 
 # --- Router Setup ---
-# Note: We define templates here, assuming it's accessible.
 # A more robust approach might involve dependency injection for templates if needed across many routers.
 templates = Jinja2Templates(directory="web_app/templates") # Define templates within this router file
 
@@ -91,14 +91,6 @@ router = APIRouter(
     # Dependencies can be added here if needed for all routes in this router
 )
 
-# --- Placeholder function to simulate database check ---
-# This could eventually live in a dedicated service/database layer file and be imported
-async def check_user_exists(email: str) -> bool:
-    print(f"Checking database for email: {email}")
-    # --- Replace with actual DB lookup ---
-    await asyncio.sleep(0.2) # Simulate db lookup time
-    return 'test' in email.lower() # Example logic
-
 # --- Root Route ---
 @router.get("/", response_class=HTMLResponse, name="read_root") # Added name for url_for
 async def read_root(request: Request):
@@ -147,7 +139,7 @@ async def handle_login_attempt(request: Request, email: str = Form(...), passwor
             "error_message": "Correo o password incorrecto."
         }, status_code=401)
 
-# --- Onboarding Route (Placeholder Definition) ---
+# --- Onboarding Route ---
 @router.get("/onboarding", name="get_onboarding_page", response_class=HTMLResponse)
 async def get_onboarding_page(request: Request, email: str | None = None):
     """Serves the onboarding questionnaire page."""
@@ -175,25 +167,26 @@ async def handle_onboarding_submission(
     print(f"Confidence Rating: {confidence_rating}")
     print("---------------------------------")
 
-    # --- Placeholder for saving data ---
-    # Here you would:
-    # 1. Generate a unique User ID (UID)
-    # 2. Store email, industry, expectations, rating, UID in your user database
-    # 3. Potentially store the UID in a secure session/cookie for the next step
-    # --- End Placeholder ---
+    # Save to firestore
+    new_user_id = await create_user(
+        email = email,
+        industry = industry,
+        expectation = expectations,
+        confidence = confidence_rating
+    )
 
-    # Redirect to the next step: Resume Upload & Account Creation
-    # We'll create this page next. Pass email along.
-    # Note: In a real app, use UID or session instead of email in URL
-    create_account_url = request.url_for('get_create_account_page').include_query_params(email=email)
+    print(f"User {new_user_id} created and saved to Firestore")
+
+    #Re-direct to resume upload/account creation
+    create_account_url = request.url_for('get_create_account_page').include_query_params(uid=new_user_id)
     return RedirectResponse(url=str(create_account_url), status_code=HTTP_303_SEE_OTHER)
 
-# --- Create Account Route (Placeholder Definition) ---
+# --- Create Account Route ---
 @router.get("/create-account", name="get_create_account_page", response_class=HTMLResponse)
-async def get_create_account_page(request: Request, email: str | None = None):
+async def get_create_account_page(request: Request, uid: str | None = None):
    """Serves the page for resume upload and account creation prompts."""
-   print(f"Serving create account/upload page for: {email}")
-   return templates.TemplateResponse("create_account.html", {"request": request, "email": email})
+   print(f"Serving create account/upload page for: {uid}")
+   return templates.TemplateResponse("create_account.html", {"request": request, "uid": uid})
 
 @router.post("/create-account", name="handle_create_account")
 async def handle_create_account_and_upload(
@@ -270,7 +263,7 @@ async def handle_create_account_and_upload(
          }, status_code=500)
     # No finally block needed to close file here, as process_and_save_resume handles it on success/failure.
 
-# --- Onboarding Completion Route (Placeholder) ---
+# --- Onboarding Completion Route ---
 @router.get("/onboarding-complete", name="get_onboarding_complete_page", response_class=HTMLResponse)
 async def get_onboarding_complete_page(request: Request):
     # ... (same as before) ...

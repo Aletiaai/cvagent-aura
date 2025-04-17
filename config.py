@@ -1,6 +1,8 @@
 import os
 import logging # Use logging for better output control
 
+USERS_COLLECTION = "users"
+
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 

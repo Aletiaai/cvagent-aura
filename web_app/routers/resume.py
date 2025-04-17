@@ -11,7 +11,6 @@ UPLOAD_DIR_RESUME.mkdir(parents=True, exist_ok=True)
 
 router = APIRouter()
 
-# This function now contains the core logic we want to reuse
 async def process_and_save_resume(background_tasks: BackgroundTasks, file: UploadFile):
     """Saves the resume and triggers background processing."""
     if not file.filename.lower().endswith(".pdf"):
