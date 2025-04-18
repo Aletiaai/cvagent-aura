@@ -42,16 +42,17 @@ def get_password_hash(password):
                 detail="System error: Could not secure password"
             )
         
-def validate_password_complexity(password: str, confirm_password: str) -> bool:
+def validate_password_complexity(password: str, confirm_password: str) -> tuple[bool, dict]:
     """Check if password meets complexity requirements"""
     errors = {}
     if password != confirm_password:
         errors["password_mismatch"] = "Los passwords no coinciden."
     if len(password) < 8:
          errors["password_length"] = "El password debe tener al menos 8 caracteres."
-    if errors:
-        print(f"Validation errors: {errors}")
-        return False
-    # Add more checks as needed (special chars, numbers, etc.)
-    return True
-# --- End Password Hashing Setup ---
+    #if not any(char.isupper() for char in password):
+    #    errors["password_uppercase"] = "El password debe contener al menos una letra mayúscula."
+    #if not any(char.islower() for char in password):
+    #    errors["password_lowercase"] = "El password debe contener al menos una letra minúscula."
+    #if not any(char.isdigit() for char in password):
+    #    errors["password_digit"] = "El password debe contener al menos un número."
+    return (len(errors) == 0, errors)

@@ -205,59 +205,57 @@ async def handle_create_account_and_upload(
     print(f"Handling account creation and upload for: {email}")
 
     # --- Server-Side Validation (Passwords only needed here now) ---
-    errors = {}
-    if password != confirm_password:
-        errors["password_mismatch"] = "Los passwords no coinciden."
-    if len(password) < 8:
-         errors["password_length"] = "El password debe tener al menos 8 caracteres."
     # File type validation will be handled by process_and_save_resume
-    if validate_password_complexity == False:
-        print(f"Errores de validación: {errors}")
+    pwd_ok, validation_errors = validate_password_complexity(password, confirm_password)
+
+    if not pwd_ok:
+        print(f"Errores de validación: {validation_errors}")
+
         # Close the file stream if validation fails early
         await file.close()
         return templates.TemplateResponse("create_account.html", {
             "request": request,
             "email": email,
             "error_message": "Por favor corrige los errores de password.",
-            "errors": errors
+            "errors": validation_errors
         }, status_code=HTTP_400_BAD_REQUEST)
 
     # --- Process Valid Data ---
     try:
          # 1. Hash the password
         print(f"Hashing password for {email}")
-        hashed_password = get_password_hash(password) # <--- HASH the password here
+        hashed_password = get_password_hash(password)
         print(f"Password hashed successfully for {email}.")
 
-        # 2. Create User in Database
-        #    NOTE: This assumes the onboarding data (industry, expectation, confidence)
-        #          will be collected later. If collected now, add them as Form parameters
-        #          and pass them to create_user. Let's assume they are collected later for now.
-        #          If you need them *now*, you'll need to add those fields to the
-        #          create_account.html form and the function signature here.
-        #          For now, we'll pass placeholder values or modify create_user.
-        #          Let's modify create_user to handle missing optional fields for now.
+        # 2. Update User in Database
         print(f"Actualizando documento de usuario con hashed password para: {email} en Firestore...")
         user_uuid = await get_uuid_by_email(email)
+        if not user_uuid:
+            raise HTTPException(status_code=404, detail=f"No se encontró el usuario con email: {email}")
         await add_hashed_pwd(user_uuid, hashed_password)
-        print(f"Password hash stored in the database for {email}.")
+        print(f"Password hash guardado en la base de datos para {email}.")
 
-        # 2. Process and Save the uploaded resume file using resume router's logic
+        # 3. Process and Save the uploaded resume file using resume router's logic
         # The process_and_save_resume function will handle file type check,
         # saving, closing the file, and triggering background tasks.
         await process_and_save_resume(background_tasks=background_tasks, file=file)
         # If process_and_save_resume raises an HTTPException, FastAPI handles it.
 
-        # 3. Redirect to success page
-        completion_url = request.url_for('get_onboarding_complete_page')
-        return RedirectResponse(url=str(completion_url), status_code=HTTP_303_SEE_OTHER)
+        # 4. Redirect to success page
+        try:
+            completion_url = request.url_for('get_onboarding_complete_page')
+            return RedirectResponse(url=str(completion_url), status_code=HTTP_303_SEE_OTHER)
+        except Exception as redirect_error:
+            print(f"Error al crear la URL de redireccionamiento: {redirect_error}")
+            # Fallback if url_for fails
+            return RedirectResponse(url="/onboarding-complete", status_code=HTTP_303_SEE_OTHER)
 
     except HTTPException as e:
          # If process_and_save_resume raised an expected error (like bad file type)
          # Re-render the form with the specific error from the exception
          print(f"HTTP Exception during resume processing: {e.detail}")
          await file.close() # Ensure file is closed if not already
-         errors["file_error"] = e.detail # Add file error to display
+         errors = {"file_error": e.detail}  # Add file error to display
          return templates.TemplateResponse("create_account.html", {
             "request": request,
             "email": email,
@@ -267,10 +265,10 @@ async def handle_create_account_and_upload(
 
     except Exception as e:
         # Handle other potential errors (e.g., unexpected issues during account creation)
-        print(f"Unexpected error processing account/upload: {e}")
+        print(f"Error inesperado durante el procesamiento de la cuenta/subir archivo: {e}")
         await file.close() # Ensure file is closed
+        errors["server_error"] = f"Ocurrio un error interno al procesar tu solicitud: {str(e)}"
         # Re-render with a generic server error
-        errors["server_error"] = "Ocurrió un error interno al procesar tu solicitud."
         return templates.TemplateResponse("create_account.html", {
             "request": request,
             "email": email,
@@ -282,7 +280,8 @@ async def handle_create_account_and_upload(
 # --- Onboarding Completion Route ---
 @router.get("/onboarding-complete", name="get_onboarding_complete_page", response_class=HTMLResponse)
 async def get_onboarding_complete_page(request: Request):
-    # ... (same as before) ...
+    """Serves the final confirmation page after successful onboarding."""
+    print("Rendering página onboarding complete")
     return templates.TemplateResponse("onboarding_complete.html", {"request": request})
 
 
