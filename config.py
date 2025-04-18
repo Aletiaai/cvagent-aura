@@ -1,7 +1,15 @@
 import os
 import logging # Use logging for better output control
+from passlib.context import CryptContext
+
+# --- Security ---
+# Create a CryptContext instance, specifying the schemes to use.
+# bcrypt is the recommended default.
+# "deprecated="auto"" will automatically mark older hashes as deprecated if you change schemes later.
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12,)  # Adjust based on your security needs)
 
 USERS_COLLECTION = "users"
+UUID_COLLECTION = "emails_to_uuids"
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)

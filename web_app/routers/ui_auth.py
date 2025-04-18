@@ -5,8 +5,10 @@ from fastapi import APIRouter, Request, Form, Depends, File, UploadFile, HTTPExc
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_400_BAD_REQUEST
-from .resume import process_and_save_resume
+from web_app.routers.resume import process_and_save_resume
 from agent.memory.user_db.users import check_user_exists, create_user
+from agent.tools.pwd.pwd_processing import get_password_hash, validate_password_complexity
+from agent.memory.user_db.users import add_hashed_pwd, get_uuid_by_email
 
 # --- Router Setup ---
 # A more robust approach might involve dependency injection for templates if needed across many routers.
@@ -90,6 +92,8 @@ router = APIRouter(
     tags=["UI & Authentication"], # Tag for API docs
     # Dependencies can be added here if needed for all routes in this router
 )
+
+
 
 # --- Root Route ---
 @router.get("/", response_class=HTMLResponse, name="read_root") # Added name for url_for
@@ -178,15 +182,15 @@ async def handle_onboarding_submission(
     print(f"User {new_user_id} created and saved to Firestore")
 
     #Re-direct to resume upload/account creation
-    create_account_url = request.url_for('get_create_account_page').include_query_params(uid=new_user_id)
+    create_account_url = request.url_for('get_create_account_page').include_query_params(uid=new_user_id, email=email)
     return RedirectResponse(url=str(create_account_url), status_code=HTTP_303_SEE_OTHER)
 
 # --- Create Account Route ---
 @router.get("/create-account", name="get_create_account_page", response_class=HTMLResponse)
-async def get_create_account_page(request: Request, uid: str | None = None):
+async def get_create_account_page(request: Request, uid: str | None = None, email: str | None = None):
    """Serves the page for resume upload and account creation prompts."""
-   print(f"Serving create account/upload page for: {uid}")
-   return templates.TemplateResponse("create_account.html", {"request": request, "uid": uid})
+   print(f"Serving create account/upload page for: {uid}, email: {email}")
+   return templates.TemplateResponse("create_account.html", {"request": request, "uid": uid, "email": email})
 
 @router.post("/create-account", name="handle_create_account")
 async def handle_create_account_and_upload(
@@ -207,9 +211,8 @@ async def handle_create_account_and_upload(
     if len(password) < 8:
          errors["password_length"] = "El password debe tener al menos 8 caracteres."
     # File type validation will be handled by process_and_save_resume
-
-    if errors:
-        print(f"Validation errors: {errors}")
+    if validate_password_complexity == False:
+        print(f"Errores de validación: {errors}")
         # Close the file stream if validation fails early
         await file.close()
         return templates.TemplateResponse("create_account.html", {
@@ -221,10 +224,23 @@ async def handle_create_account_and_upload(
 
     # --- Process Valid Data ---
     try:
-        # 1. Account Creation Logic (Placeholder)
-        # - Retrieve UID, Hash password, Store/update user record
-        print(f"Placeholder: Account created/updated for {email}.")
-        print(f"Placeholder: Password hash would be generated and saved.")
+         # 1. Hash the password
+        print(f"Hashing password for {email}")
+        hashed_password = get_password_hash(password) # <--- HASH the password here
+        print(f"Password hashed successfully for {email}.")
+
+        # 2. Create User in Database
+        #    NOTE: This assumes the onboarding data (industry, expectation, confidence)
+        #          will be collected later. If collected now, add them as Form parameters
+        #          and pass them to create_user. Let's assume they are collected later for now.
+        #          If you need them *now*, you'll need to add those fields to the
+        #          create_account.html form and the function signature here.
+        #          For now, we'll pass placeholder values or modify create_user.
+        #          Let's modify create_user to handle missing optional fields for now.
+        print(f"Actualizando documento de usuario con hashed password para: {email} en Firestore...")
+        user_uuid = await get_uuid_by_email(email)
+        await add_hashed_pwd(user_uuid, hashed_password)
+        print(f"Password hash stored in the database for {email}.")
 
         # 2. Process and Save the uploaded resume file using resume router's logic
         # The process_and_save_resume function will handle file type check,
