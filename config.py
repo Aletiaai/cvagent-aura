@@ -10,6 +10,8 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds
 
 USERS_COLLECTION = "users"
 UUID_COLLECTION = "emails_to_uuids"
+RESUME_COLLECTION = "resumes"
+SECTIONS_COLLECTION = "sections"
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -100,6 +102,77 @@ def load_all_prompts():
     if loaded_count < len(prompt_files):
          log.warning("Some prompts failed to load. Check logs above.")
 
-# --- Other Configuration (Optional) ---
-# You can put API keys (loaded from .env), constants, etc., here too.
+# --- Industry Data Structure ---
+INDUSTRIES_DATA = {
+    "Tecnología y TI": [
+        "Desarrollo de Software", "Ciberseguridad", "Inteligencia Artificial",
+        "Análisis de Datos", "Soporte Técnico", "Redes y Telecomunicaciones"
+    ],
+    "Salud y Ciencias de la Vida": [
+        "Medicina (Médicos, Enfermería)", "Farmacéutica", "Biotecnología",
+        "Psicología", "Fisioterapia", "Odontología"
+    ],
+    "Finanzas y Contabilidad": [
+        "Banca", "Inversiones y Bolsa", "Contabilidad y Auditoría",
+        "Seguros", "Finanzas Corporativas"
+    ],
+    "Educación": [
+        "Docencia (Primaria, Secundaria, Universitaria)", "Capacitación Corporativa",
+        "Educación en Línea", "Investigación Académica"
+    ],
+    "Ingeniería y Construcción": [
+        "Ingeniería Civil", "Ingeniería Mecánica", "Ingeniería Eléctrica",
+        "Arquitectura", "Construcción y Obras Públicas"
+    ],
+    "Manufactura y Producción": [
+        "Automotriz", "Textil", "Alimentaria", "Electrónica"
+    ],
+    "Comercio y Ventas": [
+        "Ventas al por Menor", "Comercio Electrónico (E-commerce)",
+        "Representante de Ventas", "Atención al Cliente"
+    ],
+    "Marketing y Publicidad": [
+        "Marketing Digital", "Publicidad y Branding", "Redes Sociales",
+        "Investigación de Mercados"
+    ],
+    "Recursos Humanos": [
+        "Reclutamiento y Selección", "Desarrollo Organizacional",
+        "Capacitación y Desarrollo"
+    ],
+    "Medios y Entretenimiento": [
+        "Cine y Televisión", "Música", "Periodismo", "Producción Audiovisual"
+    ],
+    "Turismo y Hospitalidad": [
+        "Hotelería", "Restaurantes y Gastronomía", "Agencias de Viajes"
+    ],
+    "Energía y Medio Ambiente": [
+        "Energías Renovables", "Petróleo y Gas", "Sostenibilidad Ambiental"
+    ],
+    "Legal y Gobierno": [
+        "Abogacía", "Servicios Públicos", "Política y Relaciones Internacionales"
+    ],
+    "Logística y Transporte": [
+        "Transporte y Distribución", "Cadena de Suministro", "Almacén y Inventario"
+    ],
+    "Arte y Diseño": [
+        "Diseño Gráfico", "Bellas Artes", "Diseño de Interiores"
+    ],
+    "Deportes y Bienestar": [
+        "Entrenamiento Personal", "Nutrición y Dietética", "Deportes Profesionales"
+    ],
+    "Agricultura y Agroindustria": [
+        "Agricultura", "Ganadería", "Agronegocios"
+    ],
+    "Servicios Profesionales y Consultoría": [
+        "Consultoría Empresarial", "Consultoría Tecnológica", "Asesoría Financiera"
+    ],
+    "Sector Público y ONGs": [
+        "Organizaciones No Gubernamentales (ONGs)", "Trabajo Social",
+        "Cooperación Internacional"
+    ],
+    "Otros": [
+        "Emprendimiento", "Trabajo Freelance", "Industrias Creativas"
+    ]
+}
+# --- End Industry Data ---
 # Example: GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")

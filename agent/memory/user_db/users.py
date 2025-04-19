@@ -1,10 +1,12 @@
 import uuid
 from google.cloud.firestore_v1.async_client import AsyncClient
 from datetime import datetime
-from config import USERS_COLLECTION, UUID_COLLECTION
+from config import USERS_COLLECTION, UUID_COLLECTION, RESUME_COLLECTION, SECTIONS_COLLECTION
 from fastapi import HTTPException
 
 db = AsyncClient()
+
+import uuid
 
 async def check_user_exists(email:str) -> bool:
     """Returns (doc_id, user_data) if exists, else (None, None)."""
@@ -60,3 +62,27 @@ async def add_hashed_pwd(user_uuid: str, hashed_password: str):
         })
     except Exception as e:
         print(f"Error al guardar el password the usuario {user_uuid} en Firestore: {e}")
+
+async def add_resume_sections(user_uuid: str, sections: str | dict):
+    try:
+        # Validate input
+        if not sections:
+            raise ValueError("Las secciones no pueden estar vacias")
+            
+        if not isinstance(sections, (str, dict)):
+            raise ValueError("Las sectiones deben ser string o dictionary")
+        
+        # Get references
+        user_ref = db.collection(USERS_COLLECTION).document(user_uuid)
+        resume_ref = user_ref.collection(RESUME_COLLECTION).document() # Auto-generate resumeId
+
+        result = await resume_ref.collection(SECTIONS_COLLECTION).document().set({
+            "sections": sections
+        })
+        return resume_ref.id  # Return the auto-generated ID
+    except ValueError as ve:
+        print(f"Error de validación para el usuario {user_uuid}: {ve}")
+        raise
+    except Exception as e:
+        print(f"Error al guardar las secciones del CV para el usuario: {user_uuid} en Firestore: {e}")
+        raise

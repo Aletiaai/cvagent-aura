@@ -1,8 +1,8 @@
 #core/general_feedback.py
 
 from integration.llm.gemini_api import GeminiAPI
-from agent.memory.data_handler import load_prompt
 from datetime import datetime
+from config import PROMPTS
 import re
 import unicodedata
 import json
@@ -63,7 +63,7 @@ def parse_sections(feedback_text):
         sections["email_intro"] = intro_match.group(0).strip()
 
     # Find all sections
-    section_pattern = r"-\s*([^-]+?)\s*-\s*\n+\s*(.*?)(?=(?:-[^-]+-|\n\n¡|$))" #r"-([^-]+)-\n\n(.*?)(?=(?:-[^-]+-|\n\n¡|$))" 
+    section_pattern = r"-\s*([^-]+?)\s*-\s*\n+\s*(.*?)(?=(?:-[^-]+-|\n\n¡|$))"
                       
     section_matches = re.finditer(section_pattern, feedback_text, re.DOTALL)
 
@@ -91,10 +91,8 @@ def general_analyzer(resume_dict):
         first_name = str(first_name) if not isinstance(first_name, str) else first_name
 
         # Structure the prompt to request a structured JSON response
-        prompt_filename = "entire_resume_analyzer_prompt_v7.txt"
-        prompt_folder = os.path.join("prompts", "analysis") # Relative to project root assumed
-        full_filepath = os.path.join(prompt_folder, prompt_filename)
-        prompt_content = load_prompt(full_filepath)
+        #prompt_filename = "entire_resume_analyzer_prompt_v7.txt"
+        prompt_content = PROMPTS["analysis"]
         
         # Format the prompt with the user's data
         formatted_prompt = prompt_content.format(
@@ -210,7 +208,7 @@ def general_analyzer_df(first_name, candidate_data, skills, experience, educatio
         summary = candidate_data['summary'].iloc[0] if 'summary' in candidate_data.columns else ""
         
         # Structure the prompt to request a structured JSON response
-        prompt_content = load_prompt("entire_resume_analyzer_prompt_v7.txt")
+        prompt_content = PROMPTS["analysis"]
 
         # Convert to string if it's not already a string
         first_name = str(first_name) if not isinstance(first_name, str) else first_name

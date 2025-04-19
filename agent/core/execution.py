@@ -1,17 +1,69 @@
 # Purpose: Orchestrate the steps defined by planning.py (or embed the planning logic). This replaces the main processing loops in your current main.py and parts of handle_resume_from_drive.py.
 # Import necessary functions from other modules
-from agent.core.information_extraction import get_resume_text_from_pdf, extract_information
+import asyncio
+
+from fastapi import HTTPException
+from agent.tools.information_extraction import get_resume_text_from_pdf, extract_information
 from agent.core.general_feedback import general_analyzer, general_analyzer_df
 from agent.core.asking_questions import complementary_questions
 from agent.memory.data_handler import load_data, save_data, save_feedback_to_csv, log_email_sent # Add DataFrame load/save too
 from agent.tools.email_sender import email_body_creation, email_body_creation_with_df, send_feedback_email_2, questions_email_draft, email_body_creation_asking_questions # Import email tools
 from agent.tools.email_reader import search_emails, get_message, get_attachments # Import email reader tools (if needed for triggering)
 from integration.google.drive_api import get_folder_id, list_files_in_folder, download_file # Import Drive tools
+from agent.memory.user_db.users import add_resume_sections
 # Maybe import planning: from agent.core.planning import plan_resume_processing
 import time
 import os
 import uuid
 import pandas as pd # If using DataFrames
+
+async def raw_resume_processing(pdf_bytes: bytes, uid: str):
+    """Main execution flow for a single uploaded file."""
+    try:
+        # 1. Extract text
+        text = get_resume_text_from_pdf(pdf_bytes)
+        if not text:
+            print(f"Empty text extracted for user {uid}")
+            return False
+        
+        print(f"Este es el texto extraido (primeros 200 caracteres): {text[:200]}...\n{'═'*50}")
+        
+        # 2. Extract structured data
+        extracted_data = extract_information(text, "user_extract_all_sections")
+        if not extracted_data:
+            print(f"Failed to extract information for user {uid}")
+            return False
+        
+        # 3. Debug print extracted data safely
+        if isinstance(extracted_data, dict):
+            print("Extracted sections:")
+            for section, content in extracted_data.items():
+                print(f"  {section}: {str(content)[:100]}...")
+        else:
+            print(f"Raw extracted data: {str(extracted_data)[:200]}...")
+        
+        # 4. Save to Firestore
+        await add_resume_sections(uid, extracted_data)
+        return True
+    
+    except Exception as e:
+        print(f"El procesamiento iniicial del CV fallo para el usuario: {uid}: {str(e)}")
+        import traceback
+        traceback.print_exc()  # Full stack trace
+        raise
+
+     
+
+
+
+
+
+
+
+
+
+
+
 
 # --- Functions to be called by web_app routers (or CLI) ---
 

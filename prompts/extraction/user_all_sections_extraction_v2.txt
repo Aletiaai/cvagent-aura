@@ -99,7 +99,16 @@ You will return the information from this resume in the following structured JSO
                 "end_date": "",
                 "description": "",
                 "location": ""
-            }}
+            }},
+            {{
+                "title": "",
+                "company": "",
+                "start_date": "",
+                "end_date": "",
+                "description": "",
+                "location": ""
+            }},
+            ...
         ],
         "education": [
             {{

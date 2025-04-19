@@ -5,95 +5,21 @@ from fastapi import APIRouter, Request, Form, Depends, File, UploadFile, HTTPExc
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_400_BAD_REQUEST
-from web_app.routers.resume import process_and_save_resume
+from agent.tools.file_upload import process_and_save_resume
 from agent.memory.user_db.users import check_user_exists, create_user
 from agent.tools.pwd.pwd_processing import get_password_hash, validate_password_complexity
 from agent.memory.user_db.users import add_hashed_pwd, get_uuid_by_email
+from agent.core.execution import raw_resume_processing
+from config import INDUSTRIES_DATA
 
 # --- Router Setup ---
 # A more robust approach might involve dependency injection for templates if needed across many routers.
 templates = Jinja2Templates(directory="web_app/templates") # Define templates within this router file
 
-# --- Industry Data Structure ---
-INDUSTRIES_DATA = {
-    "Tecnología y TI": [
-        "Desarrollo de Software", "Ciberseguridad", "Inteligencia Artificial",
-        "Análisis de Datos", "Soporte Técnico", "Redes y Telecomunicaciones"
-    ],
-    "Salud y Ciencias de la Vida": [
-        "Medicina (Médicos, Enfermería)", "Farmacéutica", "Biotecnología",
-        "Psicología", "Fisioterapia", "Odontología"
-    ],
-    "Finanzas y Contabilidad": [
-        "Banca", "Inversiones y Bolsa", "Contabilidad y Auditoría",
-        "Seguros", "Finanzas Corporativas"
-    ],
-    "Educación": [
-        "Docencia (Primaria, Secundaria, Universitaria)", "Capacitación Corporativa",
-        "Educación en Línea", "Investigación Académica"
-    ],
-    "Ingeniería y Construcción": [
-        "Ingeniería Civil", "Ingeniería Mecánica", "Ingeniería Eléctrica",
-        "Arquitectura", "Construcción y Obras Públicas"
-    ],
-    "Manufactura y Producción": [
-        "Automotriz", "Textil", "Alimentaria", "Electrónica"
-    ],
-    "Comercio y Ventas": [
-        "Ventas al por Menor", "Comercio Electrónico (E-commerce)",
-        "Representante de Ventas", "Atención al Cliente"
-    ],
-    "Marketing y Publicidad": [
-        "Marketing Digital", "Publicidad y Branding", "Redes Sociales",
-        "Investigación de Mercados"
-    ],
-    "Recursos Humanos": [
-        "Reclutamiento y Selección", "Desarrollo Organizacional",
-        "Capacitación y Desarrollo"
-    ],
-    "Medios y Entretenimiento": [
-        "Cine y Televisión", "Música", "Periodismo", "Producción Audiovisual"
-    ],
-    "Turismo y Hospitalidad": [
-        "Hotelería", "Restaurantes y Gastronomía", "Agencias de Viajes"
-    ],
-    "Energía y Medio Ambiente": [
-        "Energías Renovables", "Petróleo y Gas", "Sostenibilidad Ambiental"
-    ],
-    "Legal y Gobierno": [
-        "Abogacía", "Servicios Públicos", "Política y Relaciones Internacionales"
-    ],
-    "Logística y Transporte": [
-        "Transporte y Distribución", "Cadena de Suministro", "Almacén y Inventario"
-    ],
-    "Arte y Diseño": [
-        "Diseño Gráfico", "Bellas Artes", "Diseño de Interiores"
-    ],
-    "Deportes y Bienestar": [
-        "Entrenamiento Personal", "Nutrición y Dietética", "Deportes Profesionales"
-    ],
-    "Agricultura y Agroindustria": [
-        "Agricultura", "Ganadería", "Agronegocios"
-    ],
-    "Servicios Profesionales y Consultoría": [
-        "Consultoría Empresarial", "Consultoría Tecnológica", "Asesoría Financiera"
-    ],
-    "Sector Público y ONGs": [
-        "Organizaciones No Gubernamentales (ONGs)", "Trabajo Social",
-        "Cooperación Internacional"
-    ],
-    "Otros": [
-        "Emprendimiento", "Trabajo Freelance", "Industrias Creativas"
-    ]
-}
-# --- End Industry Data ---
-
 router = APIRouter(
     tags=["UI & Authentication"], # Tag for API docs
     # Dependencies can be added here if needed for all routes in this router
 )
-
-
 
 # --- Root Route ---
 @router.get("/", response_class=HTMLResponse, name="read_root") # Added name for url_for
@@ -186,6 +112,16 @@ async def handle_onboarding_submission(
     return RedirectResponse(url=str(create_account_url), status_code=HTTP_303_SEE_OTHER)
 
 # --- Create Account Route ---
+async def process_resume_wrapper(pdf_bytes: bytes, user_uuid: str):
+    """Wrapper to handle errors in background processing"""
+    try:
+        success = await raw_resume_processing(pdf_bytes, user_uuid)
+        print(f"Processing {'succeeded' if success else 'failed'}")
+
+    except Exception as e:
+        # Log the error with context
+        print(f"Background processing failed for user {user_uuid}: {str(e)}")
+
 @router.get("/create-account", name="get_create_account_page", response_class=HTMLResponse)
 async def get_create_account_page(request: Request, uid: str | None = None, email: str | None = None):
    """Serves the page for resume upload and account creation prompts."""
@@ -235,11 +171,14 @@ async def handle_create_account_and_upload(
         await add_hashed_pwd(user_uuid, hashed_password)
         print(f"Password hash guardado en la base de datos para {email}.")
 
-        # 3. Process and Save the uploaded resume file using resume router's logic
-        # The process_and_save_resume function will handle file type check,
-        # saving, closing the file, and triggering background tasks.
-        await process_and_save_resume(background_tasks=background_tasks, file=file)
-        # If process_and_save_resume raises an HTTPException, FastAPI handles it.
+        # 3. Process PDF without saving the file
+        if not file.filename.lower().endswith(".pdf"):
+            raise HTTPException(status_code=400, detail="Solo archivos PDF son aceptados.")
+        
+        pdf_bytes = await file.read() # Read file into memory
+
+        # Process in background with error handling
+        background_tasks.add_task(process_resume_wrapper, pdf_bytes, user_uuid)
 
         # 4. Redirect to success page
         try:

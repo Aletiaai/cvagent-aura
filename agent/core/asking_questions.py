@@ -1,7 +1,8 @@
 # core/asking_questions.py
 
 from integration.llm.gemini_api import GeminiAPI
-from agent.memory.data_handler import load_prompt, save_data
+from agent.memory.data_handler import save_data
+from config import PROMPTS
 import json
 from datetime import datetime
 
@@ -24,7 +25,7 @@ def complementary_questions(resume_content, file_name):
     try:
 
         # Structure the prompt to request a structured JSON response
-        prompt_content = load_prompt("q_for_users_v1.txt")
+        prompt_content = PROMPTS["user_interaction"]
 
         # Format the prompt with the user's data
         formatted_prompt = prompt_content.format(
