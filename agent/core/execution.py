@@ -10,7 +10,7 @@ from agent.memory.data_handler import load_data, save_data, save_feedback_to_csv
 from agent.tools.email_sender import email_body_creation, email_body_creation_with_df, send_feedback_email_2, questions_email_draft, email_body_creation_asking_questions # Import email tools
 from agent.tools.email_reader import search_emails, get_message, get_attachments # Import email reader tools (if needed for triggering)
 from integration.google.drive_api import get_folder_id, list_files_in_folder, download_file # Import Drive tools
-from agent.memory.user_db.users import add_resume_sections
+from agent.memory.user_db.users import add_resume_version
 # Maybe import planning: from agent.core.planning import plan_resume_processing
 import time
 import os
@@ -42,8 +42,8 @@ async def raw_resume_processing(pdf_bytes: bytes, uid: str):
         else:
             print(f"Raw extracted data: {str(extracted_data)[:200]}...")
         
-        # 4. Save to Firestore
-        await add_resume_sections(uid, extracted_data)
+        # 4. Save user version resume to Firestore
+        await add_resume_version(uid, extracted_data, "user")
         return True
     
     except Exception as e:
