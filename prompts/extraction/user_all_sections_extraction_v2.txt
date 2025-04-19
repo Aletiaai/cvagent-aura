@@ -87,6 +87,8 @@ You will return the information from this resume in the following structured JSO
             "address": "",
             "summary": ""
         }},
+        "summary": "",
+
         "skills": {{
             "soft_skills": [],
             "hard_skills": []

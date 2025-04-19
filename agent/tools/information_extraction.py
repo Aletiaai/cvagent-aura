@@ -125,8 +125,8 @@ def validate_resume_structure(data: dict, structure=None) -> bool:
                 "phone_number": (str, type(None)),
                 "linkedin_profile": (str, type(None)),
                 "address": (str, type(None)),
-                "summary": (str, type(None))
             },
+            "summary": (str, type(None)),
             "skills": {
                 "soft_skills": (list, type(None)),
                 "hard_skills": (list, type(None))
