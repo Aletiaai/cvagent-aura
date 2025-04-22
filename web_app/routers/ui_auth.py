@@ -9,7 +9,7 @@ from agent.tools.file_upload import process_and_save_resume
 from agent.memory.user_db.users import check_user_exists, create_user
 from agent.tools.pwd.pwd_processing import get_password_hash, validate_password_complexity
 from agent.memory.user_db.users import add_hashed_pwd, get_uuid_by_email
-from agent.core.execution import raw_resume_processing
+from agent.core.execution import raw_resume_processing, ResumeFeedbackOrchestrator
 from config import INDUSTRIES_DATA
 
 # --- Router Setup ---
@@ -111,7 +111,6 @@ async def handle_onboarding_submission(
     create_account_url = request.url_for('get_create_account_page').include_query_params(uid=new_user_id, email=email)
     return RedirectResponse(url=str(create_account_url), status_code=HTTP_303_SEE_OTHER)
 
-# --- Create Account Route ---
 async def process_resume_wrapper(pdf_bytes: bytes, user_uuid: str):
     """Wrapper to handle errors in background processing"""
     try:
@@ -122,6 +121,21 @@ async def process_resume_wrapper(pdf_bytes: bytes, user_uuid: str):
         # Log the error with context
         print(f"Background processing failed for user {user_uuid}: {str(e)}")
 
+
+async def process_resume_wrapper(pdf_bytes: bytes, user_uuid: str):
+    """Wrapper to handle errors in background processing"""
+    try:
+        orchestrator = ResumeFeedbackOrchestrator(user_uuid)
+        success = await orchestrator.process_raw_resume(pdf_bytes)
+        print(f"Processing {'succeeded' if success else 'failed'}")
+        return orchestrator.state
+    except Exception as e:
+        print(f"Background processing failed for user {user_uuid}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+
+# --- Create Account Route ---
 @router.get("/create-account", name="get_create_account_page", response_class=HTMLResponse)
 async def get_create_account_page(request: Request, uid: str | None = None, email: str | None = None):
    """Serves the page for resume upload and account creation prompts."""

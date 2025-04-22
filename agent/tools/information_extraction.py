@@ -21,11 +21,6 @@ def get_resume_text_from_pdf(pdf_bytes: bytes) -> str:
         print(f"Error extrayendo texto de PDF: {e}")
         return None
     
-
-
-
-
-    
 class RateLimitException(Exception):
     pass
 
@@ -80,7 +75,7 @@ def extract_information(resume_txt: str, prompt_key: str) -> dict:
             
             if not validate_resume_structure(parsed_data):
                 return None
-                
+
             return parsed_data
             
         except json.JSONDecodeError as e:

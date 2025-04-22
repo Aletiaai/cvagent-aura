@@ -1,6 +1,7 @@
 #core/general_feedback.py
 
 from integration.llm.gemini_api import GeminiAPI
+from agent.tools.information_extraction import clean_json_response
 from datetime import datetime
 from config import PROMPTS
 import re
@@ -82,26 +83,22 @@ def parse_sections(feedback_text):
     
     return sections
 
-def general_analyzer(resume_dict):
+async def generate_llm_feedback(resume_dict):
     try:
-        # Extract relevant sections from the dictionary
-        first_name = resume_dict["user_info"]["first_name"]
+        prompt_content = PROMPTS["resume_analysis"]
         
-        # Convert to string if it's not already a string
-        first_name = str(first_name) if not isinstance(first_name, str) else first_name
+        # Extract and format skills properly
+        hard_skills = resume_dict["skills"]["hard_skills"] or []
+        soft_skills = resume_dict["skills"]["soft_skills"] or []
 
-        # Structure the prompt to request a structured JSON response
-        #prompt_filename = "entire_resume_analyzer_prompt_v7.txt"
-        prompt_content = PROMPTS["analysis"]
-        
         # Format the prompt with the user's data
         formatted_prompt = prompt_content.format(
-            first_name=first_name.title(),
             Summary=resume_dict["summary"],
-            Skills=resume_dict["skills"],
-            Work_Experience=json.dumps(resume_dict["relevant_work_experience"]),  # Properly serialize to JSON
-            Education=resume_dict["education"],
-            Languages=resume_dict["languages"],
+            Hard_Skills=", ".join(hard_skills) if hard_skills else "None specified",
+            Soft_Skills=", ".join(soft_skills) if soft_skills else "None specified",
+            Work_Experience=json.dumps(resume_dict["relevant_work_experience"], indent=2),
+            Education=json.dumps(resume_dict["education"], indent=2),
+            Languages=json.dumps(resume_dict["languages"], indent=2),
         )
         
         # Get feedback from Gemini
@@ -110,28 +107,10 @@ def general_analyzer(resume_dict):
         try:
             # Clean the response text
             response_text = str(feedback_response).strip()
-            if response_text.startswith("```json"):
-                response_text = response_text.replace("```json", "", 1)
-            if response_text.endswith("```"):
-                response_text = response_text.rsplit("```", 1)[0]
-            
-            # Remove any leading/trailing whitespace and quotes
-            response_text = response_text.strip('"\' \n\t')
-            
-            # Parse the JSON response
+            response_text = clean_json_response(response_text)
             feedback_dict = json.loads(response_text)
-            
-            # Create the structure for the dictionary
-            structured_feedback = {
-                'general_feedback': feedback_dict,
-                'feedback_made_timestamp': datetime.now().isoformat()
-            }
-            
-            if feedback_response:
-                resume_dict.update(structured_feedback)
-            
-            print("Added feedback to resume data.\n")
-            return structured_feedback
+
+            return feedback_dict
             
         except json.JSONDecodeError as json_err:
             print(f"JSON parsing error: {json_err}")
@@ -152,7 +131,6 @@ def general_analyzer_df(first_name, candidate_data, skills, experience, educatio
     """Analyze resume data from dataframes and generate feedback
     
     Args:
-        first_name (str): Candidate's first name
         candidate_data (DataFrame): Candidate's general information
         skills (DataFrame): Candidate's skills
         experience (DataFrame): Candidate's work experience

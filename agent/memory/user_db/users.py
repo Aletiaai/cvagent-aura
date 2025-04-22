@@ -65,104 +65,6 @@ async def add_hashed_pwd(user_uuid: str, hashed_password: str):
     except Exception as e:
         print(f"Error al guardar el password the usuario {user_uuid} en Firestore: {e}")
 
-#async def add_resume_sections(user_uuid: str, sections: str | dict):
-#    try:
-#        # Validate input
-#        if not sections:
-#            raise ValueError("Las secciones no pueden estar vacias")
-#            
-#        if isinstance(sections, str):
-#            # Convert string to dict if needed
-#            sections = json.loads(sections)
-#        elif not isinstance(sections, dict):
-#            raise ValueError("Las sectiones deben ser string o dictionary")
-#        
-#        # Get user reference
-#        user_ref = db.collection(USERS_COLLECTION).document(user_uuid)
-#        
-#        # Create new resume document with auto-generated ID
-#        resume_ref = user_ref.collection(RESUME_COLLECTION).document()
-#        
-#        # Add processed_at timestamp
-#        sections["processed_at"] = firestore.SERVER_TIMESTAMP
-#        
-#        # Store all sections directly in the resume document
-#        await resume_ref.set(sections)
-#        
-#        return resume_ref.id  # Return the auto-generated ID
-#    except ValueError as ve:
-#        print(f"Error de validación para el usuario {user_uuid}: {ve}")
-#        raise
-#    except Exception as e:
-#        print(f"Error al guardar las secciones del CV para el usuario: {user_uuid} en Firestore: {e}")
-#        raise
-
-#async def add_resume_version(
-#    user_uuid: str, 
-#    resume_data: str | dict,
-#    version_type: str,  # "user", "llm", or "hr"
-#    resume_id: str = None,       # Optional: provide existing resume_id
-#    metadata: dict = None,       # For "llm" or "hr" specific metadata
-#):
-#    try:
-#        # Validate input
-#        if not resume_data:
-#            raise ValueError("Resume data cannot be empty")
-#            
-#        if isinstance(resume_data, str):
-#            resume_data = json.loads(resume_data)
-#        elif not isinstance(resume_data, dict):
-#            raise ValueError("Resume data must be a string or dictionary")
-#        
-#        if version_type not in ["user", "llm", "hr"]:
-#            raise ValueError("Version type must be 'user', 'llm', or 'hr'")
-#        
-#        # Get user reference
-#        user_ref = db.collection(USERS_COLLECTION).document(user_uuid)
-#        
-#        # Create or get resume document
-#        if resume_id:
-#            resume_ref = user_ref.collection(RESUME_COLLECTION).document(resume_id)
-#        else:
-#            # Only create new resume_id for user version
-#            if version_type != "user":
-#                raise ValueError("resume_id is required for 'llm' or 'hr' versions")
-#            resume_ref = user_ref.collection(RESUME_COLLECTION).document()
-#            
-#            # Initialize metadata for new resume
-#            await resume_ref.collection("metadata").document("info").set({
-#                "created_at": firestore.SERVER_TIMESTAMP,
-#                "last_updated": firestore.SERVER_TIMESTAMP,
-#                "title": metadata.get("title", "Resume") if metadata else "Resume"
-#            })
-#        
-#        # Add processed_at timestamp
-#        resume_data["processed_at"] = firestore.SERVER_TIMESTAMP
-#        
-#        # Add version-specific metadata
-#        if version_type == "llm" and metadata:
-#            resume_data["model_info"] = metadata
-#        elif version_type == "hr" and metadata:
-#            resume_data["reviewer_id"] = metadata.get("reviewer_id")
-#            resume_data["feedback"] = metadata.get("feedback", "")
-#        
-#        # Store the version
-#       await resume_ref.collection("versions").document(version_type).set(resume_data)
-#        
-#        # Update last_updated timestamp
-#        await resume_ref.collection("metadata").document("info").update({
-#            "last_updated": firestore.SERVER_TIMESTAMP
-#        })
-#        
-#        return resume_ref.id
-#        
-#    except ValueError as ve:
-#        print(f"Validation error for user {user_uuid}: {ve}")
-#        raise
-#    except Exception as e:
-#        print(f"Error saving resume version for user {user_uuid}: {e}")
-#        raise
-
 async def add_resume_version(
     user_uuid: str, 
     resume_data: str | dict,
@@ -238,3 +140,34 @@ async def add_resume_version(
     except Exception as e:
         print(f"Error saving resume version for user {user_uuid}: {e}")
         raise
+
+async def fetch_resume_data(user_id: str, version: str, resume_id: str) -> str:
+    """Looks for the uuid, if exists, using the email and returns it."""
+    try:
+        # Construct the document reference path
+        version_ref = (
+            db.collection(USERS_COLLECTION)
+            .document(user_id)
+            .collection("resumes")
+            .document(resume_id)
+            .collection("versions")
+            .document(version)
+        )
+
+        # Fetch the document
+        doc = await version_ref.get()
+
+        if not doc.exists:
+            raise HTTPException(
+                status_code=404,
+                detail="Resume version 'user' not found for the specified resume"
+            )
+        # Return all document data (resume sections)
+        return doc.to_dict()
+    
+    except Exception as e:
+        print(f"Error fetching resume sections for user {user_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch resume data: {str(e)}"
+        )

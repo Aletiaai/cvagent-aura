@@ -4,27 +4,74 @@ import asyncio
 
 from fastapi import HTTPException
 from agent.tools.information_extraction import get_resume_text_from_pdf, extract_information
-from agent.core.general_feedback import general_analyzer, general_analyzer_df
 from agent.core.asking_questions import complementary_questions
 from agent.memory.data_handler import load_data, save_data, save_feedback_to_csv, log_email_sent # Add DataFrame load/save too
 from agent.tools.email_sender import email_body_creation, email_body_creation_with_df, send_feedback_email_2, questions_email_draft, email_body_creation_asking_questions # Import email tools
 from agent.tools.email_reader import search_emails, get_message, get_attachments # Import email reader tools (if needed for triggering)
 from integration.google.drive_api import get_folder_id, list_files_in_folder, download_file # Import Drive tools
-from agent.memory.user_db.users import add_resume_version
+from agent.memory.user_db.users import add_resume_version, fetch_resume_data
+from agent.tools.general_feedback import generate_llm_feedback
 # Maybe import planning: from agent.core.planning import plan_resume_processing
 import time
 import os
 import uuid
 import pandas as pd # If using DataFrames
+from google.cloud import firestore
 
+
+class ResumeFeedbackOrchestrator:
+    def __init__(self, user_id: str):
+        self.user_id = user_id
+        self.state = {"stage": "initialized"}
+    
+    async def process_raw_resume(self, pdf_bytes: bytes):
+        # Extract text and store in Firestore
+        success, resume_id= await raw_resume_processing(pdf_bytes, self.user_id)
+        if success and resume_id:
+            self.state["stage"] = "raw_processed"
+            await self.generate_llm_feedback(resume_id)
+        return success
+    
+    async def generate_llm_feedback(self, resume_id: str):
+        self.state["stage"] = "generating_llm_feedback"
+        # Get resume data from Firestore
+        resume_data = await fetch_resume_data(self.user_id, "user", resume_id)
+        # Generate LLM feedback
+        feedback = await generate_llm_feedback(resume_data)
+        # Store feedback in Firestore
+        metadata = {
+                "created_at": firestore.SERVER_TIMESTAMP,
+                "last_updated": firestore.SERVER_TIMESTAMP,
+                "model_info": "gemini-2.0-flash-thinking-exp-01-21"
+            }
+        await add_resume_version(self.user_id, feedback, "llm_feedback", resume_id, metadata)
+        self.state["stage"] = "llm_feedback_generated"
+        return feedback
+"""
+    async def create_hr_feedback_doc(self):
+        # Called when HR retrieves LLM feedback
+        self.state["stage"] = "creating_hr_doc"
+        feedback_data = await fetch_resume_data(self.user_id, "llm_feedback")
+        doc_url = await create_google_doc(self.user_id, feedback_data, "hr_feedback")
+        self.state["hr_doc_url"] = doc_url
+        self.state["stage"] = "hr_doc_created"
+        return doc_url
+    
+    async def process_hr_feedback(self, hr_feedback: dict):
+        # Store HR's revised feedback
+        await add_resume_version(self.user_id, hr_feedback, "hr_feedback")
+        self.state["stage"] = "completed"
+        return True
+"""
+    
 async def raw_resume_processing(pdf_bytes: bytes, uid: str):
-    """Main execution flow for a single uploaded file."""
+    """Main execution flow for a single uploaded file"""
     try:
         # 1. Extract text
         text = get_resume_text_from_pdf(pdf_bytes)
         if not text:
             print(f"Empty text extracted for user {uid}")
-            return False
+            return False, None
         
         print(f"Este es el texto extraido (primeros 200 caracteres): {text[:200]}...\n{'═'*50}")
         
@@ -32,7 +79,7 @@ async def raw_resume_processing(pdf_bytes: bytes, uid: str):
         extracted_data = extract_information(text, "user_extract_all_sections")
         if not extracted_data:
             print(f"Failed to extract information for user {uid}")
-            return False
+            return False, None
         
         # 3. Debug print extracted data safely
         if isinstance(extracted_data, dict):
@@ -43,14 +90,15 @@ async def raw_resume_processing(pdf_bytes: bytes, uid: str):
             print(f"Raw extracted data: {str(extracted_data)[:200]}...")
         
         # 4. Save user version resume to Firestore
-        await add_resume_version(uid, extracted_data, "user")
-        return True
+        resume_id = await add_resume_version(uid, extracted_data, "user")
+        print(f"CV número: {resume_id} guardado en Firestore para el usuario: {uid}")
+        return True, resume_id
     
     except Exception as e:
         print(f"El procesamiento iniicial del CV fallo para el usuario: {uid}: {str(e)}")
         import traceback
         traceback.print_exc()  # Full stack trace
-        raise
+        return False, None
 
      
 
@@ -63,12 +111,12 @@ async def raw_resume_processing(pdf_bytes: bytes, uid: str):
 
 
 
-
+"""
 
 # --- Functions to be called by web_app routers (or CLI) ---
 
 def trigger_resume_processing_from_file(file_path: str, original_filename: str, analyze=True, ask_questions=False, send_email=True):
-    """Main execution flow for a single uploaded file."""
+    Main execution flow for a single uploaded file
     print(f"Executing processing for file: {original_filename}")
     try:
         resume_text = get_resume_text_from_pdf(file_path)
@@ -135,7 +183,7 @@ def trigger_resume_processing_from_file(file_path: str, original_filename: str, 
          pass
 
 def trigger_resume_processing_from_drive(drive_folder_path: str, service_type: str = "review"):
-    """Main execution flow for processing files from a Drive folder."""
+    Main execution flow for processing files from a Drive folder
     print(f"Executing Drive processing for folder: {drive_folder_path}")
     drive_folder_id = get_folder_id(drive_folder_path)
     if not drive_folder_id:
@@ -229,3 +277,4 @@ def trigger_resume_processing_from_drive(drive_folder_path: str, service_type: s
 # def trigger_resume_processing_from_email(label_name: str): ...
 
 # Note: This file becomes the central orchestrator. It calls functions from core, memory, tools, and integration. It needs careful implementation to handle errors and manage state (like resume_array or candidate_id).
+"""
