@@ -191,11 +191,10 @@ async def handle_create_account_and_upload(
         
         pdf_bytes = await file.read() # Read file into memory
 
-        # Process in background with error handling
-        background_tasks.add_task(process_resume_wrapper, pdf_bytes, user_uuid)
-
         # 4. Redirect to success page
         try:
+            # Process in background with error handling
+            background_tasks.add_task(process_resume_wrapper, pdf_bytes, user_uuid)
             completion_url = request.url_for('get_onboarding_complete_page')
             return RedirectResponse(url=str(completion_url), status_code=HTTP_303_SEE_OTHER)
         except Exception as redirect_error:

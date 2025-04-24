@@ -108,21 +108,20 @@ async def add_resume_version(
             })
         
         # Add processed_at timestamp
-        resume_data["processed_at"] = firestore.SERVER_TIMESTAMP
+        #resume_data["processed_at"] = firestore.SERVER_TIMESTAMP
         
         # Add version-specific metadata
-        if version_type == "llm" and metadata:
-            resume_data["model_info"] = metadata.get("model_info", {})
-        elif version_type == "llm_feedback" and metadata:
-            resume_data["model_info"] = metadata.get("model_info", {})
-        elif version_type == "hr" and metadata:
-            resume_data["reviewer_id"] = metadata.get("reviewer_id", "")
-            resume_data["notes"] = metadata.get("notes", "")
-        elif version_type == "hr_feedback" and metadata:
-            resume_data["reviewer_id"] = metadata.get("reviewer_id", "")
-        elif version_type == "master" and metadata:
-            resume_data["creator_id"] = metadata.get("creator_id", "")
-            resume_data["notes"] = metadata.get("notes", "")
+        if metadata:
+            resume_data["metadata"] = metadata
+        #elif version_type == "llm_feedback" and metadata:
+        #    resume_data["metadata"] = metadata
+        #elif version_type == "hr" and metadata:
+        #    resume_data["metadata"] = metadata
+        #elif version_type == "hr_feedback" and metadata:
+        #    resume_data["metadata"] = metadata
+        #elif version_type == "master" and metadata:
+        #    resume_data["metadata"] = metadata
+
         
         # Store the version
         await resume_ref.collection("versions").document(version_type).set(resume_data)
