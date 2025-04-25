@@ -231,10 +231,6 @@ async def create_google_doc(user_id: str, feedback_data: dict, doc_purpose: str 
                         requests.append({'insertText': {'location': {'index': current_index}, 'text': example_content}})
                         current_index += len(example_content)
 
-                    #example_content = f"Example:\n{example_text}\n\n" # Add label and spacing
-                    #requests.append({'insertText': {'location': {'index': current_index}, 'text': example_content}})
-                    #current_index += len(example_content)
-
             print(f"Prepared {len(requests)} requests for Docs API batchUpdate.")
 
             # --- 5. Populate the Document using Docs API ---
