@@ -4,11 +4,11 @@
 #agent/core/execution.py
 from fastapi import HTTPException
 from agent.tools.information_extraction import get_resume_text_from_pdf, extract_information
-from agent.core.asking_questions import complementary_questions
-from agent.memory.data_handler import load_data, save_data, save_feedback_to_csv, log_email_sent # Add DataFrame load/save too
-from agent.tools.email_sender import email_body_creation, email_body_creation_with_df, send_feedback_email_2, questions_email_draft, email_body_creation_asking_questions # Import email tools
-from agent.tools.email_reader import search_emails, get_message, get_attachments # Import email reader tools (if needed for triggering)
-from integration.google.drive_api import get_folder_id, list_files_in_folder, download_file # Import Drive tools
+#from agent.core.asking_questions import complementary_questions
+#from agent.memory.data_handler import load_data, save_data, save_feedback_to_csv, log_email_sent # Add DataFrame load/save too
+#from agent.tools.email_sender import email_body_creation, email_body_creation_with_df, send_feedback_email_2, questions_email_draft, email_body_creation_asking_questions # Import email tools
+#from agent.tools.email_reader import search_emails, get_message, get_attachments # Import email reader tools (if needed for triggering)
+#from integration.google.drive_api import get_folder_id, list_files_in_folder, download_file # Import Drive tools
 from agent.memory.user_db.users import add_resume_version, fetch_resume_data
 from agent.tools.general_feedback import generate_llm_feedback
 from googleapiclient.errors import HttpError

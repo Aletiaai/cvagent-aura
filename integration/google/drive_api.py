@@ -76,16 +76,9 @@ def build_google_service(service_name: str, version: str, credentials):
         print(f"An error occurred building the {service_name} service: {error}")
         raise # Re-raise the exception
 
-# Example of how you might get both services (you'll call this later)
-# async def get_drive_and_docs_services():
-#     # Use asyncio.to_thread for synchronous credential loading/building in async code
-#     creds = await asyncio.to_thread(get_google_api_credentials)
-#     drive_service = await asyncio.to_thread(build_google_service, 'drive', 'v3', creds)
-#     docs_service = await asyncio.to_thread(build_google_service, 'docs', 'v1', creds)
-#     return drive_service, docs_service
 
-def authenticate_drive_api():
-    """Authenticates the user for Google Drive API access and returns the service object."""
+"""def authenticate_drive_api():
+    #Authenticates the user for Google Drive API access and returns the service object
     creds = None
     if os.path.exists('token.json'):
         creds = Credentials.from_authorized_user_file('token.json', SCOPES)
@@ -101,10 +94,8 @@ def authenticate_drive_api():
     return build('drive', 'v3', credentials = creds)
 
 def get_folder_id(folder_path):
-    """Gets the ID of a folder by its full path in Google Drive.
-        Args: Folder_path: The path to the folder (e.g., "Parent Folder/Subfolder/Target Folder").
-        Returns: The ID of the target folder (or None if not found).
-    """
+    #Gets the ID of a folder by its full path in Google Drive.Args: Folder_path: The path to the folder (e.g., "Parent Folder/Subfolder/Target Folder"). Returns: The ID of the target folder (or None if not found).
+
     parent_id = 'root'  # Start at the root of the Drive
     folder_names = folder_path.split('/')
 
@@ -127,10 +118,7 @@ def get_folder_id(folder_path):
     return parent_id  # This is the ID of the final folder in the path
     
 def list_files_in_folder(folder_id):
-    """Lists the files in a given folder.
-    Args: Folder_id: The ID of the folder.
-    Returns: A list of file objects (or [] if an error occurs).
-    """
+    #Lists the files in a given folder. Args: Folder_id: The ID of the folder. Returns: A list of file objects (or [] if an error occurs).
     try:
         results = service.files().list(
             q = f"'{folder_id}' in parents",
@@ -143,12 +131,7 @@ def list_files_in_folder(folder_id):
         return []
 
 def download_file(file_id, file_name, download_dir = "data/resumes"):
-    """Downloads a file from Google Drive.
-    Args:
-        file_id: The ID of the file to download.
-        file_name: The name of the file.
-        download_dir: The directory to save the file to.
-    """
+    #Downloads a file from Google Drive. Args: file_id: The ID of the file to download. file_name: The name of the file. download_dir: The directory to save the file to.
     try:
         if not os.path.exists(download_dir):
             os.makedirs(download_dir)
@@ -179,4 +162,5 @@ def number_files_in_drive(drive_folder_id):
             return None
     
 # Changes: Ensure consistent use of the service object. You might want to make this a class GoogleDriveClient that gets initialized with credentials and holds the service object. Ensure correct import paths for googleapiclient, etc.
+"""
 

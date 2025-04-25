@@ -1,5 +1,6 @@
 #agent/tools/google_doc.py
 import time
+import re
 import os
 import uuid
 import asyncio
@@ -7,9 +8,114 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from integration.google.drive_api import get_google_api_credentials, build_google_service
 
+
+def _format_work_experience_requests(example_text: str, start_index: int) -> tuple[list, int]:
+    """
+    Parses work experience example text and generates Docs API requests
+    for specific formatting (bold title, bullet points).
+
+    Args:
+        example_text (str): The example text for work experience, expected in
+                            "[Title Info], [description: Point 1. Point 2...]" format.
+        start_index (int): The starting index in the Google Doc for inserting content.
+
+    Returns:
+        tuple[list, int]: A tuple containing:
+                          - A list of Google Docs API request objects.
+                          - The updated index after adding the content.
+    """
+    requests = []
+    current_index = start_index
+    fallback_requests = []
+
+    # Fallback content in case parsing fails
+    fallback_content = f"Example:\n{example_text}\n\n"
+    fallback_requests.append({'insertText': {'location': {'index': current_index}, 'text': fallback_content}})
+    fallback_index = current_index + len(fallback_content)
+
+    try:
+        # --- 1. Add "Example:" Label ---
+        example_label = "Example:\n"
+        requests.append({'insertText': {'location': {'index': current_index}, 'text': example_label}})
+        current_index += len(example_label)
+
+        # --- 2. Parse Title and Description ---
+        # Using regex for slightly more robust parsing than simple split
+        # It looks for "[...], [description: ...]"
+        match = re.match(r"^\s*\[(.*?)\]\s*,\s*\[description:\s*(.*)\]\s*$", example_text, re.DOTALL)
+
+        if not match:
+            print(f"Warning: Could not parse work experience example format: {example_text}. Using fallback.")
+            # Return the fallback requests if parsing fails
+            return fallback_requests, fallback_index
+
+        title_part = match.group(1).strip()
+        description_part = match.group(2).strip()
+
+        # --- 3. Insert and Format Title ---
+        title_text = f"{title_part}\n"
+        title_start_index = current_index
+        requests.append({'insertText': {'location': {'index': title_start_index}, 'text': title_text}})
+        # Apply bold style to the title text (excluding the newline)
+        requests.append({'updateTextStyle': {
+            'range': {'startIndex': title_start_index, 'endIndex': title_start_index + len(title_text) - 1},
+            'textStyle': {'bold': True},
+            'fields': 'bold' # Specify only the fields you want to update
+        }})
+        current_index += len(title_text) # Update index *after* insertion
+
+        # --- 4. Insert Description as Bullet Points ---
+        # Attempt to split description into points. This is still fragile.
+        # Assumes points are separated by ". " followed by a capital letter, or are distinct sentences.
+        # A more robust solution involves structuring the input data better (e.g., a list of strings).
+        # Split by common sentence endings followed by space, keeping the delimiter.
+        # This regex splits after a period, question mark, or exclamation mark followed by a space.
+        bullet_points = re.split(r'(?<=[.?!])\s+', description_part)
+        # Filter out any empty strings that might result from splitting
+        bullet_points = [p.strip() for p in bullet_points if p.strip()]
+
+
+        if bullet_points:
+            bullet_start_index = current_index
+            for point in bullet_points:
+                point_text = f"{point}\n" # Add newline to make it a paragraph
+                requests.append({'insertText': {'location': {'index': current_index}, 'text': point_text}})
+                current_index += len(point_text)
+            bullet_end_index = current_index
+
+            # Apply bullet points to the paragraphs we just inserted
+            # The range covers the entire block of bullet points.
+            requests.append({'createParagraphBullets': {
+                'range': {
+                    'startIndex': bullet_start_index,
+                    'endIndex': bullet_end_index # End index is exclusive
+                },
+                'bulletPreset': 'BULLET_DISC_CIRCLE_SQUARE' # Standard bullet style
+            }})
+            # Add an extra newline for spacing after the bullets
+            requests.append({'insertText': {'location': {'index': current_index}, 'text': '\n'}})
+            current_index += 1
+
+        else:
+            # If splitting fails, insert the description part as plain text
+            print(f"Warning: Could not split description into bullet points: {description_part}. Inserting as plain text.")
+            desc_text = f"{description_part}\n\n"
+            requests.append({'insertText': {'location': {'index': current_index}, 'text': desc_text}})
+            current_index += len(desc_text)
+
+
+        return requests, current_index
+
+    except Exception as e:
+        print(f"Error during work experience formatting: {e}. Using fallback.")
+        # Return the fallback requests in case of any unexpected error
+        return fallback_requests, fallback_index
+
+
 async def create_google_doc(user_id: str, feedback_data: dict, doc_purpose: str = "Reporte_de_retroalimentación v1") -> str | None:
         """
         Creates a Google Doc, populates it with formatted feedback, and returns the URL.
+        Includes special formatting for the work experience section.
 
         Uses service account credentials suitable for Cloud Run.
 
@@ -65,7 +171,8 @@ async def create_google_doc(user_id: str, feedback_data: dict, doc_purpose: str 
             requests = []
             current_index = 1 # Docs API uses 1-based indexing for content
 
-            doc_main_title = "Resume Feedback Analysis\n"
+            # --- Document Title ---
+            doc_main_title = "Retroalimentación de tu CV\n"
             requests.append({'insertText': {'location': {'index': current_index}, 'text': doc_main_title}})
             requests.append({'updateParagraphStyle': {
                 'range': {'startIndex': current_index, 'endIndex': current_index + len(doc_main_title)},
@@ -73,6 +180,7 @@ async def create_google_doc(user_id: str, feedback_data: dict, doc_purpose: str 
                 'fields': 'namedStyleType'}})
             current_index += len(doc_main_title)
 
+            # --- Sections ---
             # Define standard section order (optional, but good for consistency)
             section_order = ["summary", "hard_skills", "soft_skills", "work_experience", "education", "languages"]
 
@@ -92,9 +200,6 @@ async def create_google_doc(user_id: str, feedback_data: dict, doc_purpose: str 
 
                 # --- Section Title ---
                 title = section_key.replace('_', ' ').title()
-                # Add a general title for the overall feedback if it's the first section
-                #if current_index == 1:
-
                 # Add section heading (e.g., "Summary", "Hard Skills")
                 section_title_text = f"{title}\n"
                 requests.append({'insertText': {'location': {'index': current_index}, 'text': section_title_text}})
@@ -111,12 +216,24 @@ async def create_google_doc(user_id: str, feedback_data: dict, doc_purpose: str 
                     requests.append({'insertText': {'location': {'index': current_index}, 'text': feedback_content}})
                     current_index += len(feedback_content)
 
-
-                # --- Example Text ---
+                # --- Example Text (Conditional Formatting) ---
                 if example_text:
-                    example_content = f"Example:\n{example_text}\n\n" # Add label and spacing
-                    requests.append({'insertText': {'location': {'index': current_index}, 'text': example_content}})
-                    current_index += len(example_content)
+                    if section_key == "work_experience":
+                        # Use the helper function for special formatting
+                        print(f"Formatting work experience example for section: {section_key}")
+                        wx_requests, updated_index = _format_work_experience_requests(example_text, current_index)
+                        requests.extend(wx_requests)
+                        current_index = updated_index
+                    else:
+                        # Standard formatting for other sections
+                        print(f"Formatting standard example for section: {section_key}")
+                        example_content = f"Example:\n{example_text}\n\n"
+                        requests.append({'insertText': {'location': {'index': current_index}, 'text': example_content}})
+                        current_index += len(example_content)
+
+                    #example_content = f"Example:\n{example_text}\n\n" # Add label and spacing
+                    #requests.append({'insertText': {'location': {'index': current_index}, 'text': example_content}})
+                    #current_index += len(example_content)
 
             print(f"Prepared {len(requests)} requests for Docs API batchUpdate.")
 
