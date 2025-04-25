@@ -1,4 +1,4 @@
-#api_integration/drive_api.py
+# integration/google/drive_api.py 
 import io
 import os.path
 from googleapiclient.discovery import build
@@ -6,11 +6,83 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
+import os
+import google.auth # Use the main google-auth library
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError # Good to import for error handling
+
 SCOPES = [
     'https://www.googleapis.com/auth/gmail.readonly',
     'https://www.googleapis.com/auth/gmail.compose',
-    'https://www.googleapis.com/auth/drive.readonly'
+    'https://www.googleapis.com/auth/drive'
     ]
+
+# --- Service Account Authentication ---
+# Load the service account key path from an environment variable
+SERVICE_ACCOUNT_FILE = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+
+def get_google_api_credentials():
+    """
+    Authenticates using a Service Account suitable for Cloud Run.
+
+    Returns:
+        google.oauth2.service_account.Credentials: The authenticated credentials object.
+
+    Raises:
+        Exception: If credentials cannot be loaded (e.g., file not found, invalid format).
+    """
+    if not SERVICE_ACCOUNT_FILE:
+        raise ValueError(
+            "Environment variable 'GOOGLE_APPLICATION_CREDENTIALS' is not set. "
+            "Provide the path to your service account key file."
+        )
+    if not os.path.exists(SERVICE_ACCOUNT_FILE):
+         raise FileNotFoundError(
+            f"Service account key file not found at path: {SERVICE_ACCOUNT_FILE}. "
+            "Ensure the file exists and the path is correct."
+        )
+
+    try:
+        creds = service_account.Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE, scopes=SCOPES
+        )
+        print(f"Successfully loaded service account credentials for scopes: {SCOPES}")
+        return creds
+    except Exception as e:
+        print(f"Error loading service account credentials from {SERVICE_ACCOUNT_FILE}: {e}")
+        raise # Re-raise the exception after logging
+
+def build_google_service(service_name: str, version: str, credentials):
+    """
+    Builds a Google API service client.
+
+    Args:
+        service_name (str): The name of the service (e.g., 'drive', 'docs').
+        version (str): The version of the service (e.g., 'v3', 'v1').
+        credentials: The authenticated credentials object.
+
+    Returns:
+        googleapiclient.discovery.Resource: The built service object.
+
+    Raises:
+        HttpError: If the service build fails.
+    """
+    try:
+        service = build(service_name, version, credentials=credentials, cache_discovery=False) # cache_discovery=False can help avoid issues in some environments
+        print(f"Successfully built Google API service: {service_name} v{version}")
+        return service
+    except HttpError as error:
+        print(f"An error occurred building the {service_name} service: {error}")
+        raise # Re-raise the exception
+
+# Example of how you might get both services (you'll call this later)
+# async def get_drive_and_docs_services():
+#     # Use asyncio.to_thread for synchronous credential loading/building in async code
+#     creds = await asyncio.to_thread(get_google_api_credentials)
+#     drive_service = await asyncio.to_thread(build_google_service, 'drive', 'v3', creds)
+#     docs_service = await asyncio.to_thread(build_google_service, 'docs', 'v1', creds)
+#     return drive_service, docs_service
 
 def authenticate_drive_api():
     """Authenticates the user for Google Drive API access and returns the service object."""
