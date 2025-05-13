@@ -37,6 +37,7 @@ llm_feedback_metadata_template = {
     "last_updated": None,
     "user_id": None,
     "resume_id": None,
+    "google_doc_url": None,
 }
 
 USERS_COLLECTION = "users"

@@ -258,27 +258,36 @@ async def get_hr_user_by_email(email: str) -> dict:
 
 
 async def get_pending_resumes():
-    """Fetches resumes in 'En Revisión' and 'Pendiente' statuses, ordered by submission date."""
-    resumes_ref = db.collection_group("versions").document()
+    """Fetches resumes in 'en revisión' and 'pendiente' statuses, ordered by submission date."""
+    resumes_ref = db.collection_group(RESUME_COLLECTION)
     
     # Query for "En Revisión" resumes
     in_review_query = (
         resumes_ref
-        .where(filter=FieldFilter("metadata.status", "==", "En Revisión"))
+        .where(filter=FieldFilter("metadata.status", "==", "en revisión"))
         .order_by("metadata.created_at", direction=firestore.Query.ASCENDING)
         .limit(50)
     )
-    in_review_docs = await in_review_query.get()
+    try:
+        in_review_docs = await in_review_query.get()
+    except Exception as e:
+        print(f"Error fetching 'en revisión' resumes: {str(e)}")
+        raise Exception("Error fetching 'En Revisión' resumes")
     
     # Query for "Pendiente" resumes
     remaining_limit = 50 - len(in_review_docs)
     pending_query = (
         resumes_ref
-        .where(filter=FieldFilter("metadata.status", "==", "Pendiente"))
+        .where(filter=FieldFilter("metadata.status", "==", "pendiente"))
         .order_by("metadata.created_at", direction=firestore.Query.ASCENDING)
         .limit(remaining_limit)
     )
-    pending_docs = await pending_query.get()
+    try:
+        pending_docs = await pending_query.get()
+    except Exception as e:
+        print(f"Error fetching pendiente' resumes: {str(e)}")
+        raise Exception("Error fetching 'pendiente' resumes")
+    
     
     # Combine results: "En Revisión" first, then "Pendiente"
     all_docs = list(in_review_docs) + list(pending_docs)
@@ -287,7 +296,8 @@ async def get_pending_resumes():
     resume_list = []
     for doc in all_docs:
         resume_data = doc.to_dict()
-        user_uuid = doc.reference.parent.parent.id  # Parent user document ID
+        user_uuid = resume_data["metadata"]["user_id"]
+        google_doc_url = resume_data["metadata"].get("google_doc_url")
         submission_date = (
             resume_data["metadata"]["created_at"].isoformat()
             if resume_data["metadata"].get("created_at")
@@ -295,9 +305,10 @@ async def get_pending_resumes():
         )
         resume_list.append({
             "user_uuid": user_uuid,
+            "google_doc_url": google_doc_url,
             "resume_id": doc.id,
             "submission_date": submission_date,
-            "industry": resume_data["metadata"].get("industry", "Unknown"),
+            "industry": resume_data["metadata"]["onboarding"].get("industry") if resume_data["metadata"].get("onboarding") else resume_data["metadata"].get("industry", "Unknown"),
             "status": resume_data["metadata"].get("status", "Unknown")
         })
     return resume_list

@@ -52,26 +52,6 @@ class ResumeFeedbackOrchestrator:
         print(f"Este es el id del feedback: {llm_feedback_id}")
         print(f"Este es el id del CV del usuario: {resume_id}")
 
-        feedback_metadata = llm_feedback_metadata_template.copy() # Start with a copy of the template
-        feedback_metadata["status"] = "pendiente"
-        feedback_metadata["version_type"] = "llm_feedback"
-        feedback_metadata["model_info"] = "gemini-2.0-flash-thinking-exp-01-21"
-        feedback_metadata["user_id"] = user_id
-        feedback_metadata["resume_id"] = llm_feedback_id
-        feedback_metadata["created_at"] = firestore.SERVER_TIMESTAMP
-        feedback_metadata["last_updated"] = firestore.SERVER_TIMESTAMP
-
-        llm_resume_feedback_metadata= {
-            "content": feedback,
-            "metadata": feedback_metadata,
-        }
-
-        await llm_resume_ref.set(llm_resume_feedback_metadata)
-        self.state["stage"] = "llm_feedback_generated"
-
-        user_ref = db.collection(USERS_COLLECTION).document(user_id)
-        await user_ref.update({"llm_feedback_id": llm_feedback_id})
-
         llm_feedback_doc_url = await create_google_doc(self.user_id, feedback, "Reporte_de_retroalimentación_v1")
 
         if llm_feedback_doc_url:
@@ -84,6 +64,28 @@ class ResumeFeedbackOrchestrator:
             print(f"Failed to create Google Doc for user {self.user_id}, resume_id {llm_feedback_id}")
             self.state["stage"] = "google_doc_failed" # Update state if needed
             # Decide how to handle failure - maybe log and continue, or raise error
+        
+        feedback_metadata = llm_feedback_metadata_template.copy() # Start with a copy of the template
+        feedback_metadata["status"] = "pendiente"
+        feedback_metadata["version_type"] = "llm_feedback"
+        feedback_metadata["model_info"] = "gemini-2.0-flash-thinking-exp-01-21"
+        feedback_metadata["user_id"] = user_id
+        feedback_metadata["resume_id"] = llm_feedback_id
+        feedback_metadata["created_at"] = firestore.SERVER_TIMESTAMP
+        feedback_metadata["last_updated"] = firestore.SERVER_TIMESTAMP
+        feedback_metadata["google_doc_url"] = llm_feedback_doc_url
+
+
+        llm_resume_feedback_metadata= {
+            "content": feedback,
+            "metadata": feedback_metadata,
+        }
+
+        await llm_resume_ref.set(llm_resume_feedback_metadata)
+        self.state["stage"] = "llm_feedback_generated"
+
+        user_ref = db.collection(USERS_COLLECTION).document(user_id)
+        await user_ref.update({"llm_feedback_id": llm_feedback_id})
 
         return feedback
 
