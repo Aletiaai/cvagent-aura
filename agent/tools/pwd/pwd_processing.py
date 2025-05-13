@@ -2,11 +2,13 @@ from config import pwd_context
 from passlib.context import CryptContext
 from fastapi import HTTPException
 import logging
+import bcrypt
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# --- Helper function for password verification ---
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Verify a password against its hashed version.
@@ -16,11 +18,15 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return pwd_context.verify(plain_password, hashed_password)
     except Exception as e:
         logger.error(f"Password verification failed: {str(e)}")
-        return False
-    
-# --- Helper function for password verification (useful for login later) ---
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+        # Fallback to direct bcrypt if passlib fails
+        try:
+            # Ensure inputs are bytes
+            pw_bytes = plain_password.encode('utf-8') if isinstance(plain_password, str) else plain_password
+            hash_bytes = hashed_password.encode('utf-8') if isinstance(hashed_password, str) else hashed_password
+            return bcrypt.checkpw(pw_bytes, hash_bytes)
+        except Exception as e2:
+            logger.error(f"Direct bcrypt verification failed: {str(e2)}")
+            return False
 
 # --- Helper function for hashing ---
 def get_password_hash(password):

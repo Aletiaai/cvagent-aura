@@ -1,24 +1,20 @@
 # cvagent-aura/web_app/routers/ui_auth.py
 
-import asyncio
 from fastapi import APIRouter, Request, Form, Depends, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_400_BAD_REQUEST
-from agent.tools.file_upload import process_and_save_resume
 from agent.memory.user_db.users import check_user_exists, create_user
 from agent.tools.pwd.pwd_processing import get_password_hash, validate_password_complexity
-from agent.memory.user_db.users import add_hashed_pwd, get_uuid_by_email
-from agent.core.execution import raw_resume_processing, ResumeFeedbackOrchestrator
-from config import INDUSTRIES_DATA
+from agent.memory.user_db.users import add_hashed_pwd, get_uuid_by_email, add_resume_version
+from agent.core.execution import ResumeFeedbackOrchestrator
+from config import INDUSTRIES_DATA, user_metadata_template
 
 # --- Router Setup ---
-# A more robust approach might involve dependency injection for templates if needed across many routers.
 templates = Jinja2Templates(directory="web_app/templates") # Define templates within this router file
 
 router = APIRouter(
     tags=["UI & Authentication"], # Tag for API docs
-    # Dependencies can be added here if needed for all routes in this router
 )
 
 # --- Root Route ---
@@ -97,30 +93,39 @@ async def handle_onboarding_submission(
     print(f"Confidence Rating: {confidence_rating}")
     print("---------------------------------")
 
-    # Save to firestore
-    new_user_id = await create_user(
-        email = email,
-        industry = industry,
-        expectation = expectations,
-        confidence = confidence_rating
-    )
-
-    print(f"User {new_user_id} created and saved to Firestore")
-
-    #Re-direct to resume upload/account creation
-    create_account_url = request.url_for('get_create_account_page').include_query_params(uid=new_user_id, email=email)
-    return RedirectResponse(url=str(create_account_url), status_code=HTTP_303_SEE_OTHER)
-
-async def process_resume_wrapper(pdf_bytes: bytes, user_uuid: str):
-    """Wrapper to handle errors in background processing"""
     try:
-        success = await raw_resume_processing(pdf_bytes, user_uuid)
-        print(f"Processing {'succeeded' if success else 'failed'}")
+        # Create user
+        new_user_id = await create_user(
+            email = email,
+            industry = industry,
+        )
 
+        print(f"User {new_user_id} created and saved to Firestore")
+
+        initial_metadata = user_metadata_template.copy() # Start with a copy of the template
+        initial_metadata["onboarding"]["expectations"] = expectations
+        initial_metadata["onboarding"]["confidence_rating"] = confidence_rating
+        initial_metadata["onboarding"]["industry"] = industry
+        initial_metadata["version_type"] = "user"
+        initial_metadata["user_id"] = new_user_id
+
+        cv_id = await add_resume_version(
+            resume_data = {"onboarding":"completed"},
+            metadata= initial_metadata
+        )
+        
+        print(f"CV {cv_id} created with onboarding data for user {new_user_id}")
+
+        #Re-direct to resume upload/account creation
+        create_account_url = request.url_for('get_create_account_page').include_query_params(uid=new_user_id, email=email)
+        return RedirectResponse(url=str(create_account_url), status_code=HTTP_303_SEE_OTHER)
+    
+    except ValueError as ve:
+        print(f"Validation error: {ve}")
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        # Log the error with context
-        print(f"Background processing failed for user {user_uuid}: {str(e)}")
-
+        print(f"Error during onboarding: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process onboarding submission")
 
 async def process_resume_wrapper(pdf_bytes: bytes, user_uuid: str):
     """Wrapper to handle errors in background processing"""

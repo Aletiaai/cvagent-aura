@@ -12,6 +12,7 @@
         <form id="email-form" action="/check-email" method="post">             <label for="email">Correo Electrónico:</label>
             <input type="email" id="email" name="email" required>
             <button type="submit">Enviar</button>
+            <p>¿Eres un profesional de RH? <a href="{{ url_for('get_hr_login_page') }}">Accede aquí</a></p>
             <p id="error-message" class="error"></p>         </form>
     </div>
 

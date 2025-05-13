@@ -88,17 +88,17 @@ async def generate_llm_feedback(resume_dict):
         prompt_content = PROMPTS["resume_analysis"]
         
         # Extract and format skills properly
-        hard_skills = resume_dict["skills"]["hard_skills"] or []
-        soft_skills = resume_dict["skills"]["soft_skills"] or []
+        hard_skills = resume_dict["content"]["skills"]["hard_skills"] or []
+        soft_skills = resume_dict["content"]["skills"]["soft_skills"] or []
 
         # Format the prompt with the user's data
         formatted_prompt = prompt_content.format(
-            Summary=resume_dict["summary"],
+            Summary=resume_dict["content"]["summary"],
             Hard_Skills=", ".join(hard_skills) if hard_skills else "None specified",
             Soft_Skills=", ".join(soft_skills) if soft_skills else "None specified",
-            Work_Experience=json.dumps(resume_dict["relevant_work_experience"], indent=2),
-            Education=json.dumps(resume_dict["education"], indent=2),
-            Languages=json.dumps(resume_dict["languages"], indent=2),
+            Work_Experience=json.dumps(resume_dict["content"]["relevant_work_experience"], indent=2),
+            Education=json.dumps(resume_dict["content"]["education"], indent=2),
+            Languages=json.dumps(resume_dict["content"]["languages"], indent=2),
         )
         
         # Get feedback from Gemini

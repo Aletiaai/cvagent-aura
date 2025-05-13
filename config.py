@@ -6,12 +6,44 @@ from passlib.context import CryptContext
 # Create a CryptContext instance, specifying the schemes to use.
 # bcrypt is the recommended default.
 # "deprecated="auto"" will automatically mark older hashes as deprecated if you change schemes later.
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12,)  # Adjust based on your security needs)
+#pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12,)  # Adjust based on your security needs)
+
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__rounds=12,
+    bcrypt__ident="2b",  # Explicitly set bcrypt ident
+)
+
+user_metadata_template = {
+    "onboarding": {
+        "expectations": None,  # You can set initial values or None
+        "confidence_rating": None,
+        "industry": None
+    },
+    "version_type": None, # "user", "llm", "llm_feedback", "hr", "hr_feedback", or "master"
+    "created_at": None,
+    "last_updated": None,
+    "is_complete": False,
+    "user_id": None,
+    "resume_id": None,
+}
+
+llm_feedback_metadata_template = {
+    "status": None,
+    "version_type": None, # "user", "llm", "llm_feedback", "hr", "hr_feedback", or "master"
+    "model_info": None,
+    "created_at": None,
+    "last_updated": None,
+    "user_id": None,
+    "resume_id": None,
+}
 
 USERS_COLLECTION = "users"
 UUID_COLLECTION = "emails_to_uuids"
 RESUME_COLLECTION = "resumes"
 SECTIONS_COLLECTION = "sections"
+HR_COLLECTION = "hr_users"
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)

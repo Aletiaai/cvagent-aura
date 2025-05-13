@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CV Agent - Escritorio de Revisión de CVs</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        a {
+            text-decoration: none;
+            color: #007BFF;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Escritorio de Revisión de CVs</h1>
+        {% if resumes %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Identificador del Usuario</th>
+                    <th>Fecha de Envío</th>
+                    <th>Industria de Interés</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for resume in resumes %}
+                <tr>
+                    <td>{{ resume.user_uuid }}</td>
+                    <td>{{ resume.submission_date }}</td>
+                    <td>{{ resume.industry }}</td>
+                    <td>{{ resume.status }}</td>
+                    <td>
+                        <a href="/hr/review/{{ resume.user_uuid }}/{{ resume.resume_id }}">
+                            Revisar CV
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No hay CVs pendientes de revisión.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

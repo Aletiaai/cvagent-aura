@@ -144,28 +144,42 @@ async def create_google_doc(user_id: str, feedback_data: dict, doc_purpose: str 
             print(f"Document Title: {doc_title}")
 
             # --- 3. Create Blank Google Doc using Drive API ---
+
+            # --- 3. Validate Folder ID and Create Blank Google Doc ---
+            folder_id = os.getenv('GOOGLE_DRIVE_FEEDBACK_FOLDER_ID')
+            if not folder_id:
+                raise ValueError("GOOGLE_DRIVE_FEEDBACK_FOLDER_ID environment variable not set")
+
+            # Verify folder exists and is accessible
+            try:
+                folder = await asyncio.to_thread(
+                    drive_service.files().get(fileId=folder_id, fields='id').execute
+                )
+                print(f"Validated folder ID: {folder_id}")
+            except HttpError as error:
+                print(f"Error accessing folder {folder_id}: {error}")
+                raise ValueError(f"Invalid or inaccessible folder ID: {folder_id}")
+
             file_metadata = {
                 'name': doc_title,
                 'mimeType': 'application/vnd.google-apps.document',
-                'parents': [os.getenv('GOOGLE_DRIVE_FEEDBACK_FOLDER_ID')] # Folder ID to store the doc
+                'parents': [folder_id]
             }
 
             print("Creating Google Doc file via Drive API...")
-            # Run synchronous API call in thread pool
             file = await asyncio.to_thread(
                 drive_service.files().create(
                     body=file_metadata,
-                    fields='id, webViewLink' # Request ID and URL
+                    fields='id, webViewLink'
                 ).execute
             )
 
             doc_id = file.get('id')
             doc_url = file.get('webViewLink')
-            if not doc_id:
-                print(f"Error: Failed to create Google Doc file. No ID returned.")
+            if not doc_id or not doc_url:
+                print(f"Error: Failed to create Google Doc file. Response: {file}")
                 return None
             print(f"Successfully created Google Doc file. ID: {doc_id}, URL: {doc_url}")
-
 
             # --- 4. Format Content for Docs API ---
             requests = []
