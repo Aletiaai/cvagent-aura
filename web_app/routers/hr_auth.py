@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Form, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_401_UNAUTHORIZED
-from agent.memory.user_db.users import check_hr_user_exists, get_hr_user_by_email
+from agent.memory.user_db.users import check_hr_user_exists, get_hr_user_by_email, get_hr_review_data
 from agent.tools.pwd.pwd_processing import verify_password
 from agent.memory.user_db.users import get_pending_resumes
 
@@ -66,3 +66,42 @@ async def get_hr_dashboard_page(request: Request):
         "hr_dashboard.html",
         {"request": request, "resumes": resume_list}
     )
+
+@router.get("/hr/review/{user_uuid}/{resume_id}", response_class=HTMLResponse, name="get_hr_review_page")
+async def get_hr_review_page(request: Request, user_uuid: str, resume_id: str):
+    hr_session = request.cookies.get("hr_session")
+    if hr_session != "logged_in":
+        return RedirectResponse(
+            url=request.url_for("get_hr_login_page"),
+            status_code=HTTP_303_SEE_OTHER
+        )
+    # Fetch review data using the new function
+    review_data = await get_hr_review_data(user_uuid, resume_id)
+    return templates.TemplateResponse(
+        "hr_review.html",
+        {
+            "request": request,
+            **review_data
+        }
+    )
+
+@router.post("/hr/complete_review/{user_uuid}/{resume_id}", name="complete_review")
+async def complete_review(request: Request, user_uuid: str, resume_id: str):
+   """Marks the review as complete and updates the resume status."""
+   hr_session = request.cookies.get("hr_session")
+   if hr_session != "logged_in":
+       return RedirectResponse(
+           url=request.url_for("get_hr_login_page"),
+           status_code=HTTP_303_SEE_OTHER
+       )
+   
+   # Update resume status
+   hr_feedback_ref = db.collection("resumes").document(resume_id)
+   await hr_feedback_ref.update({
+       "metadata.status": "notificacion_pendiente"
+   })
+   
+   return RedirectResponse(
+       url=request.url_for("get_hr_dashboard_page"),
+       status_code=HTTP_303_SEE_OTHER
+   )

@@ -127,9 +127,6 @@ async def add_resume_version(resume_data: str | dict, metadata: dict = None) -> 
         metadata_field = "metadata"
         created_at_field = "created_at"
         last_updated_field = "last_updated"
-
-        # Get resume reference
-        #user_ref = db.collection(RESUME_COLLECTION).document(user_uuid)
         
         # Create or get resume document
         if resume_id:
@@ -193,7 +190,6 @@ async def add_resume_version(resume_data: str | dict, metadata: dict = None) -> 
                 new_resume_data = {
                     content_field: resume_data,
                     metadata_field: metadata,
-                    #metadata_field: {**metadata, "is_complete": False}
                 }
                 await resume_ref.set(new_resume_data)
 
@@ -312,3 +308,40 @@ async def get_pending_resumes():
             "status": resume_data["metadata"].get("status", "Unknown")
         })
     return resume_list
+
+async def get_hr_review_data(user_uuid: str, resume_id: str):
+    # Fetch user data
+    user_ref = db.collection(USERS_COLLECTION).document(user_uuid)
+    user_doc = await user_ref.get()
+    if not user_doc.exists:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_data = user_doc.to_dict()
+    
+    # Fetch original resume document (version_type == "user")
+    original_resume_query = db.collection(RESUME_COLLECTION).where("metadata.user_id", "==", user_uuid).where("metadata.version_type", "==", "llm_feedback").limit(1)
+    original_resume_docs = await original_resume_query.get()
+    if not original_resume_docs:
+        raise HTTPException(status_code=404, detail="Original resume not found")
+    original_resume_doc = original_resume_docs[0].to_dict()
+    
+    # Fetch LLM feedback document
+    llm_feedback_ref = db.collection(RESUME_COLLECTION).document(resume_id)
+    llm_feedback_doc = await llm_feedback_ref.get()
+    if not llm_feedback_doc.exists:
+        raise HTTPException(status_code=404, detail="LLM feedback not found")
+    llm_feedback_data = llm_feedback_doc.to_dict()
+    
+    # Extract necessary data
+    user_details = user_data
+    resume_metadata = original_resume_doc['metadata']
+    user_pdf_url = user_details.get('pdf_url', 'no_pdf_url')
+    llm_google_doc_edit_url = llm_feedback_data['metadata'].get('google_doc_url', 'no_google_doc_url')
+    llm_feedback_resume_id = resume_id
+    
+    return {
+        "user_details": user_details,
+        "resume_metadata": resume_metadata,
+        "user_pdf_url": user_pdf_url,
+        "llm_google_doc_edit_url": llm_google_doc_edit_url,
+        "llm_feedback_resume_id": llm_feedback_resume_id
+    }

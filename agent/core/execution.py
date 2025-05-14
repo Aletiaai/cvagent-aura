@@ -11,6 +11,7 @@ from google.cloud import firestore
 from agent.memory.user_db.users import db
 from config import USERS_COLLECTION, UUID_COLLECTION, RESUME_COLLECTION, HR_COLLECTION, SECTIONS_COLLECTION, llm_feedback_metadata_template
 from agent.tools.google_doc import create_google_doc
+from google.cloud import storage
 
 
 class ResumeFeedbackOrchestrator:
@@ -123,16 +124,29 @@ async def raw_resume_processing(pdf_bytes: bytes, uid: str):
         else:
             print(f"Raw extracted data: {str(extracted_data)[:200]}...")
         
-        # 4. Get the user_resume_id from user's documentfrom Firestore
+        # 4. Get the user_resume_id from user's document from Firestore
         resume_ref = db.collection(USERS_COLLECTION).document(uid)
         resume_id = (await resume_ref.get()).get("user_resume_id")
+        
+        # 5. Upload PDF to Google Cloud Storage
+        storage_client = storage.Client()
+        bucket = storage_client.bucket("pdf_resumes")  # Replace with your bucket
+        blob = bucket.blob(f"resumes/{uid}/{resume_id}.pdf")
+        blob.upload_from_string(pdf_bytes, content_type="application/pdf")
+        pdf_url = blob.public_url  # Or use signed URL for security
 
-        # 5. Update the content field in the user_resume_document in Firestore
+         # 6. Update the content field in the user_resume_document in Firestore
         user_resume_ref = db.collection(RESUME_COLLECTION).document(resume_id)
-        await user_resume_ref.update({"content": extracted_data,
+        # Update Firestore with PDF URL
+        await user_resume_ref.update({
+            "content": extracted_data,
             "metadata.is_complete": True,
-            "metadata.status": "pendiente",
-            "metadata.last_updated": firestore.SERVER_TIMESTAMP})
+            "metadata.status": "pdf_text_extracted",
+            "metadata.last_updated": firestore.SERVER_TIMESTAMP,
+        })
+
+        user_ref = db.collection(USERS_COLLECTION).document(uid)
+        await user_ref.update({"metadata.pdf_url": pdf_url})
 
         print(f"CV número: {resume_id} guardado en Firestore para el usuario: {uid}")
         return True, resume_id
