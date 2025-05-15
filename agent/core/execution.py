@@ -130,7 +130,7 @@ async def raw_resume_processing(pdf_bytes: bytes, uid: str):
         
         # 5. Upload PDF to Google Cloud Storage
         storage_client = storage.Client()
-        bucket = storage_client.bucket("pdf_resumes")  # Replace with your bucket
+        bucket = storage_client.bucket("cvagent_docs")  # Replace with your bucket
         blob = bucket.blob(f"resumes/{uid}/{resume_id}.pdf")
         blob.upload_from_string(pdf_bytes, content_type="application/pdf")
         pdf_url = blob.public_url  # Or use signed URL for security
@@ -146,7 +146,7 @@ async def raw_resume_processing(pdf_bytes: bytes, uid: str):
         })
 
         user_ref = db.collection(USERS_COLLECTION).document(uid)
-        await user_ref.update({"metadata.pdf_url": pdf_url})
+        await user_ref.update({"pdf_url": pdf_url})
 
         print(f"CV número: {resume_id} guardado en Firestore para el usuario: {uid}")
         return True, resume_id
